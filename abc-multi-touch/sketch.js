@@ -1,36 +1,35 @@
 // ---------- bouncing-circles ----------
+const MAX_BALLS = 7;       // <-- global maximum
 let circles = [];
-let freezeTimer   = 5000;   // ms to show
-let showTimer     = true;   // always shown
-let timerRunning  = false;  // don't count until next hit
-let difficulty    = 'Beginner'; // switches at 10 balls
-let freezeDuration= 5000;   // current freeze length (ms)
+let freezeTimer   = 600;
+let showTimer     = true;
+let timerRunning  = false;
+let difficulty    = 'Beginner';
+let freezeDuration= 600;
+let speedBoost    = 0.0;
 
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent('p5-canvas-container');
-  resetGame();               // start with 1 ball
+  resetGame();
 }
 
 function draw() {
-  background(90, 200, 190);
+  background(201, 246, 255);
   let now = millis();
 
-  /* 1. move & wall-bounce (skip if frozen) + CLAMP */
+  /* move & wall-bounce (skip frozen) + CLAMP */
   for (let c of circles) {
     if (now < c.frozenUntil) continue;
-
     c.x += c.vx;
     c.y += c.vy;
-
     c.x = constrain(c.x, c.r, width - c.r);
     c.y = constrain(c.y, c.r, height - c.r);
-
     if ((c.vx < 0 && c.x <= c.r) || (c.vx > 0 && c.x >= width - c.r))  c.vx *= -1;
     if ((c.vy < 0 && c.y <= c.r) || (c.vy > 0 && c.y >= height - c.r))  c.vy *= -1;
   }
 
-  /* 2. circle–circle bounce (skip frozen pairs) + CLAMP */
+  /* circle–circle bounce (skip frozen pairs) + CLAMP */
   for (let i = 0; i < circles.length; i++) {
     for (let j = i + 1; j < circles.length; j++) {
       let c1 = circles[i], c2 = circles[j];
@@ -41,12 +40,10 @@ function draw() {
         let overlap = (minDist - dist)/2, ux = dx/dist, uy = dy/dist;
         c1.x -= ux*overlap; c1.y -= uy*overlap;
         c2.x += ux*overlap; c2.y += uy*overlap;
-
         c1.x = constrain(c1.x, c1.r, width - c1.r);
         c1.y = constrain(c1.y, c1.r, height - c1.r);
         c2.x = constrain(c2.x, c2.r, width - c2.r);
         c2.y = constrain(c2.y, c2.r, height - c2.r);
-
         let m1 = c1.r*c1.r, m2 = c2.r*c2.r;
         let relVel = (c1.vx - c2.vx)*ux + (c1.vy - c2.vy)*uy;
         let impulse = 2*relVel/(m1 + m2);
@@ -56,76 +53,70 @@ function draw() {
     }
   }
 
-  /* 3. draw circles */
+  /* draw circles */
   noStroke();
   for (let c of circles) {
-    fill(c.flashFreeze ? color(100,200,255) : (c.flash ? color(255,100,100) : 0));
+    fill(c.flashFreeze ? color(100,200,255) : (c.flash ? color(140, 81, 40) : color(247, 167, 62)));
     circle(c.x, c.y, 2*c.r);
     c.flash = c.flashFreeze = false;
   }
 
-  /* 4. ALWAYS-ON HUD */
-  textAlign(CENTER, TOP);   // top-middle difficulty
-  textSize(28);
+  /* ALWAYS-ON HUD */
+  textAlign(CENTER, TOP);
+  textSize(20);
   fill(0);
   text(difficulty, width / 2, 10);
-
-  textAlign(LEFT, BOTTOM);  // bottom-left ball count
-  text(`Balls: ${circles.length}`, 10, height - 10);
-  
-  textAlign(RIGHT, BOTTOM); // bottom-right freeze timer
+  textAlign(LEFT, BOTTOM);
+  text(`Balls: ${circles.length} / ${MAX_BALLS}`, 10, height - 10);   // MAX_BALLS
+  textAlign(RIGHT, BOTTOM);
   if (showTimer) {
-    if (timerRunning) freezeTimer = max(0, freezeTimer - deltaTime);
-    text(`Freeze: ${(freezeTimer/1000).toFixed(1)}s`, width - 10, height - 10);
-    
-    /* *****  NEW :  time-out → remove oldest ball  ***** */
-    if (freezeTimer <= 0 && timerRunning) {
-      timerRunning = false;
-      if (!circles.every(c => (millis() - c.frozenUntil + freezeDuration) <= freezeDuration)) {
-        circles.shift();          // oldest-created out
-      }
+    if (timerRunning) {
+        freezeTimer -= deltaTime;
+        if (freezeTimer <= 0) {          // timer just expired
+            timerRunning = false;
+            /* did the player miss at least one ball? */
+            let allFrozen = circles.every(c => millis() < c.frozenUntil);
+            if (!allFrozen && circles.length) circles.pop();   // penalty
+            else circles.forEach(c => c.frozenUntil = 0);      // success – unfreeze
+        }
     }
-  }
+    text(`Sync-Time Limit: ${max(0, freezeTimer/1000).toFixed(1)}s`,
+         width - 10, height - 10);
+}
 }
 
-/* ---------- touch ---------- */
+/* ========== SAME-TIME MULTI-TOUCH ========== */
 function touchStarted() {
-  let x = touches[0].x, y = touches[0].y;
   let now = millis();
   let hitSomething = false;
 
-  for (let c of circles) {
-    if (dist(x,y, c.x,c.y) < c.r) {
-      hitSomething = true;
-      console.log(touches);
-      c.frozenUntil = now + freezeDuration;   // use current freeze length
-      c.flashFreeze = true;
-      break;
+  for (let t of touches) {
+    for (let c of circles) {
+      if (dist(t.x, t.y, c.x, c.y) < c.r) {
+        c.frozenUntil = now + freezeDuration;
+        c.flashFreeze = true;
+        hitSomething  = true;
+      }
     }
   }
-
+  if (hitSomething) console.log(touches);
   if (!hitSomething) return false;
 
   freezeTimer = freezeDuration;
   timerRunning = true;
 
-  let allRecent = circles.every(c => (now - c.frozenUntil + freezeDuration) <= freezeDuration);
-  if (allRecent) {
-    if (circles.length < 10) {                // normal spawn
-      circles.push(makeCircle(random(80,width-80), random(80,height-80)));
+  let allTouchedNow = circles.every(c => (now - c.frozenUntil + freezeDuration) <= freezeDuration);
+  if (allTouchedNow) {
+    if (circles.length < MAX_BALLS) {                                    // MAX_BALLS
+      circles.push(makeCircle(random(80, width - 80), random(80, height - 80)));
       circles.forEach(c => c.frozenUntil = 0);
       timerRunning = false;
-
-      /* PROMOTE & RESET at 10th ball */
-      if (circles.length === 10) {
+      if (circles.length === MAX_BALLS) {                                // MAX_BALLS
+        speedBoost += 0.5;
         if (difficulty === 'Beginner') {
-          difficulty     = 'Intermediate';
-          freezeDuration = 3000;   // drop to 3-second window
-          resetGame();
-        } else if (difficulty === 'Intermediate'){
-          difficulty     = 'Hard';
-          freezeDuration = 1000;   // drop to 1-second window
-          resetGame();
+          difficulty = 'Intermediate'; freezeDuration = 350; resetGame();
+        } else if (difficulty === 'Intermediate') {
+          difficulty = 'Hard'; freezeDuration = 200; resetGame();
         }
       }
     }
@@ -133,21 +124,21 @@ function touchStarted() {
   return false;
 }
 
+function touchMoved() { return false; }
+function touchEnded() { return false; }
+
 /* ---------- helpers ---------- */
 function makeCircle(x,y){
-  return {x,y, r:50, vx:random(-3,3), vy:random(-3,3), frozenUntil:0, flash:false, flashFreeze:false};
+  return {
+    x:x, y:y, r:50,
+    vx: ((random(-3, 3) * (0.3 + speedBoost))),
+    vy: ((random(-3, 3) * (0.3 + speedBoost))),
+    frozenUntil:0, flash:false, flashFreeze:false
+  };
 }
-
-function resetGame() {          // single-ball restart
-  circles = [];
+function resetGame() {
+  circles = []; 
   circles.push(makeCircle(width / 2, height / 2));
-  freezeTimer   = freezeDuration;
-  timerRunning  = false;
+  freezeTimer = freezeDuration; timerRunning = false;
 }
-
-function windowResized(){
-  resizeCanvas(windowWidth, windowHeight);
-}
-
-function touchMoved(){}
-function touchEnded(){}
+function windowResized(){ resizeCanvas(windowWidth, windowHeight); }
