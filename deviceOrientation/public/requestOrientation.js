@@ -11,5 +11,6 @@ function requestOrientation() {
         .catch(console.error);
     } else {
         // handle regular non iOS 13+ devices
+        window.addEventListener('deviceorientation', handleOrientation, true);
     }
 }
