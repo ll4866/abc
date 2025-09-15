@@ -4,4 +4,4 @@ Hi, I am ....
 
 Find my project below:
 - [Multi-Touch](https://ll4866.github.io/abc/abc-multi-touch/)
-- [Device Orientation](https://ll4866.github.io/abc/deviceorientation/)
+- [Device Orientation](https://ll4866.github.io/abc/deviceOrientation/)
