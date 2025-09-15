@@ -143,11 +143,12 @@ function newTarget() {
 // P5 touch events: https://p5js.org/reference/#Touch 
 
 function touchStarted() {
-  let x = width - 80 - buttonW/2;
+  let x = width/2 - buttonW/2;
   let y = height - 80 - buttonH/2;
 
   for (let t of touches) {
     if (t.x > x && t.x < x + buttonW && t.y > y && t.y < y + buttonH) {
+      console.log('touch');
       scorePending = true;   // ask to score, don't score yet
       return false;
     }
