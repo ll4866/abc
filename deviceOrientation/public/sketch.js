@@ -10,7 +10,7 @@ function setup() {
   canvas.parent("p5-canvas-container");
   targetAlpha = random(0,360);
   targetBeta = random(-180,180);
-  targetGamma = random(-90,90);
+  // targetGamma = random(-90,90);
 }
 
 function draw() {
