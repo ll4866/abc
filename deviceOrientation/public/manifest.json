@@ -2,7 +2,7 @@
   "name": "Device Orientation",
   "icons": [
     {
-      "src": "assets/512.png",
+      "src": "assets/Target-icons.png",
       "type": "image/png",
       "sizes": "512x512"
     }

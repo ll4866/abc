@@ -1,4 +1,5 @@
 // from: https://dev.to/li/how-to-requestpermission-for-devicemotion-and-deviceorientation-events-in-ios-13-46g2
+
 function requestOrientation() {
     // feature detect
     if (typeof DeviceOrientationEvent.requestPermission === 'function') {
