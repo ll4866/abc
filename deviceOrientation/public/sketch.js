@@ -102,6 +102,7 @@ function draw() {
     captured = false;
     newTarget();
   }
+
   push();
     translate(width/2, height/2);
     stroke(255,0,0);
@@ -146,6 +147,8 @@ function touchStarted() {
     if (t.x > x && t.x < x + buttonW && t.y > y && t.y < y + buttonH) {
       captured = true;
       return false; 
+    } else {
+      captured = false;
     }
   }
 }
