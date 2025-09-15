@@ -8,22 +8,22 @@ let score = 0;
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("p5-canvas-container");
-  targetAlpha = random(0,360);
-  targetBeta = random(-180,180);
+  targetAlpha = 0;//random(0,360);
+  targetBeta = 0;//random(-180,180);
   // targetGamma = random(-90,90);
 }
 
 function draw() {
   background(90, 200, 190);
   
-  // ----- Information ------
+  // Information 
   noStroke();
   fill(0);
   text("alpha: " + round(alpha), 10, 30);
   text("beta: " + round(beta), 10, 40);
   text("gamma: " + round(gamma), 10, 50);
 
-  // ------ Drawing the Target -----
+  // Drawing the Target
   // Distance btw Phone and Target
   const SCALE = 4;
 
@@ -44,11 +44,57 @@ function draw() {
 
   // Color Change if apprach zone range
   if (d < withinZone/3){
-    fill(0, 255, 0);
-  } else { 
     fill(255, 0, 0);
+  } else { 
+    fill(60);
   }
-  circle(drawX, drawY, 30);
+
+  // spider
+  push();
+    translate(drawX, drawY);
+    scale(0.5);
+      
+    // fangs
+    ellipse(60, 10, 30, 8);
+    ellipse(60, -10, 30, 8);
+
+    // legs
+    noStroke();
+    for (let side of [-1, 1]) {               // left / right
+      for (let i = 0; i < 4; i++) {           // four legs per side
+        push();
+        rotate(side * (20 + i * 17));         
+        for (let j = 0; j < 3; j++) ellipse(j * 23, 0, 30, 8);
+        translate(60, 0);
+        rotate(side * 24.5);
+        for (let j = 0; j < 2; j++) ellipse(j * 15, 0, 17, 6);
+        pop();
+    }
+    }
+
+    // head 
+    ellipse(30, 0, 60, 30);
+
+    // Color Change if apprach zone range
+    if (d < withinZone/3){
+      fill(200, 0, 0);
+    } else { 
+      fill(0);
+    }
+
+    // abdomen
+    ellipse(-10, 0, 90, 50);
+    ellipse(-10, 0, 80, 40);
+
+    // eyes 
+    fill(255);
+    stroke(0);
+    circle(45, -8, 15);
+    circle(45, 8, 15);
+    fill(0);
+    circle(45, -8, 5);
+    circle(45, 8, 5);
+  pop();
 
   // Target drawing
   if(d < 5 && captured == true){
@@ -80,7 +126,7 @@ function draw() {
     fill(255);
     textAlign(CENTER, CENTER);
     textSize(16);
-    text("Capture", 0, 0);
+    text("Exterminate", 0, 0);
   pop();
 }
 
