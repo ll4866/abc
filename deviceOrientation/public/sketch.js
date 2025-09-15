@@ -1,9 +1,11 @@
 let alpha, beta, gamma = 0;
 let targetAlpha, targetBeta, targetGamma = 0;
-let captured = false;
+
 let buttonW = 100;
 let buttonH = 60;
+
 let score = 0;
+let scorePending = false;
 
 function setup() {
   let canvas = createCanvas(windowWidth, windowHeight);
@@ -19,9 +21,9 @@ function draw() {
   // Information 
   noStroke();
   fill(0);
-  text("alpha: " + round(alpha), 10, 30);
-  text("beta: " + round(beta), 10, 40);
-  text("gamma: " + round(gamma), 10, 50);
+  text("alpha: " + round(alpha), width - 80, 30);
+  text("beta: " + round(beta), width - 80, 40);
+  text("gamma: " + round(gamma), width - 80, 50);
 
   // Drawing the Target
   // Distance btw Phone and Target
@@ -96,18 +98,19 @@ function draw() {
     circle(45, 8, 5);
   pop();
 
-  // Target drawing
-  if(d < 5 && captured == true){
+  // scoring
+  if (scorePending && d < 5) {   
     score++;
-    captured = false;
+    scorePending = false;
     newTarget();
   }
 
+  // Target drawing
   push();
     translate(width/2, height/2);
     stroke(255,0,0);
     strokeWeight(1);
-    fill(0,0,0,10);
+    fill(0, 0, 0, 50);
     circle(0,0, 120);  
     fill(255,0,0);
     circle(0,0, 5);  
@@ -119,7 +122,7 @@ function draw() {
 
   // Capture button
   push();
-    translate(width - 80, height - 80);
+    translate(width/2, height - 80);
     noStroke();
     fill(0,0,0, 220);
     rectMode(CENTER);
@@ -145,10 +148,8 @@ function touchStarted() {
 
   for (let t of touches) {
     if (t.x > x && t.x < x + buttonW && t.y > y && t.y < y + buttonH) {
-      captured = true;
-      return false; 
-    } else {
-      captured = false;
+      scorePending = true;   // ask to score, don't score yet
+      return false;
     }
   }
 }
@@ -157,6 +158,7 @@ function touchMoved() {
 }
 
 function touchEnded() {
+  scorePending = false; 
 }
 
 function windowResized(){
