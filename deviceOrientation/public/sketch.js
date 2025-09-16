@@ -71,7 +71,7 @@ function draw() {
         rotate(side * 24.5);
         for (let j = 0; j < 2; j++) ellipse(j * 15, 0, 17, 6);
         pop();
-    }
+      }
     }
 
     // head 
@@ -135,7 +135,7 @@ function draw() {
 }
 
 function newTarget() {
-  targetAlpha = random(360);   // 0-360
+  targetAlpha = random(360);
   targetBeta  = random(-180, 180);
   targetGamma = random(-90, 90);
 }
