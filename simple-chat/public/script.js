@@ -1,3 +1,5 @@
+const socket = io();
+
 let formElm = document.querySelector("#chatForm");
 console.log(formElm);
 let msgInput = document.querySelector("#newMessage");
@@ -15,8 +17,9 @@ function newMessageSubmitted(event){
     let newMessage = msgInput.value
     console.log(newMessage);
 
+    appendMessage(newMessage);
     // Send the newMessage to the server 1st
-
+    socket.emit("message", newMessage);
     
     // clear out input
     msgInput.value = "";
@@ -26,6 +29,9 @@ function newMessageSubmitted(event){
 // LISTEN FOR NEW MESSAGES FROM SERVER
 // APPEND THEM TO THE MESSAGE BOX
 // AUTO SCROLL TO BOTTOM
+socket.on("newMessage", function(data){
+    console.log(data);
+})
 
 // APPEND MESSAGES TO BOX
 function appendMessage(txt){
@@ -48,3 +54,9 @@ function appendMessage(txt){
 appendMessage("llaalalal");
 // OPTIONAL: LISTEN FOR NEW NAME
 // SEND IT TO SERVER
+
+
+// window.addEventListener("resize", function(e){
+//     console.log("resixed", window.innerHeight, e)
+//     document.querySelector(".main-wrapper").style.height = "100dvh";
+// })

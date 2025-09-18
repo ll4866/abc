@@ -1,11 +1,12 @@
 body{
     margin: 0;
     overflow: hidden;
+    height:100dvh;
 }
 
 .main-wrapper{
     width:100%;
-    height:100vh;
+    height:100dvh;
     background-color: bisque;
     display: flex;
     flex-direction: column;
@@ -18,8 +19,8 @@ body{
 
 #threadWrapper{
     background-color: aquamarine;
-    /* flex-grow: 1; */
-    height: 400px;
+    flex-grow: 1;
+    /* height: 625px; */
     margin: 15px 0px; 
     display: flex;
     flex-direction: column;

@@ -16,8 +16,8 @@ app.use(express.static('public'));
 // Creating object of key and certificate
 // for SSL
 const options = {
-    key: fs.readFileSync("localhost-key.pem"),
-    cert: fs.readFileSync("localhost.pem"),
+    key: fs.readFileSync("keys-for-local-https/localhost-key.pem"),
+    cert: fs.readFileSync("keys-for-local-https/localhost.pem"),
 };
 
 
