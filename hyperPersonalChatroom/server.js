@@ -36,6 +36,11 @@ io.on('connection', function(socket){
             message: IncomingMessage
         }
         io.emit("newMessage", messageToAllClients);
+
+        // rebroadcast the object the client now sends
+        if (incomingMessage.sender && incomingMessage.text){
+            io.emit("newMessage", incomingMessage);
+        }
     })
 
     socket.on('disconnect', function() {

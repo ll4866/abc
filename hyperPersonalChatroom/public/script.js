@@ -15,7 +15,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     if(!trimmed) return;
     userName = trimmed;
 
-    // replace with fixed label inside #nameWrapper
+    // replace with fixed label 
     nameWrapper.innerHTML = '<span style="position:fixed; top:5px; left:5px; font-weight:bold; margin-bottom:8px;">' + userName + '</span>';
 
     // announcement
@@ -23,7 +23,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     entryLi.className = 'system';
     entryLi.textContent = userName + ' entered the chat';
     document.querySelector('#threadWrapper ul').appendChild(entryLi);
-    socket.emit('message', entryLi.textContent);
+    socket.emit('message', {sender:'system', text:entryLi.textContent});
 });
 
 // LISTEN FOR NEWLY TYPEd MESSAGES, 
@@ -44,7 +44,7 @@ function newMessageSubmitted(event){
     appendMessage(newMessage);
 
     // send the newMessage to the server 1st
-    socket.emit("message", newMessage);
+    socket.emit("message", {sender:userName, text:newMessage});
 
     // clear out input
     msgInput.value = "";
