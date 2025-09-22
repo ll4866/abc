@@ -19,11 +19,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     nameWrapper.innerHTML = '<span style="position:fixed; top:5px; left:5px; font-weight:bold; margin-bottom:8px;">' + userName + '</span>';
 
     // announcement
-    let entryLi = document.createElement('li');
-    entryLi.className = 'system';
-    entryLi.textContent = userName + ' entered the chat';
-    document.querySelector('#threadWrapper ul').appendChild(entryLi);
-    socket.emit('message', {sender:'system', text:entryLi.textContent});
+    socket.emit('message', {sender:'system', text:userName + ' entered the chat'});
 });
 
 // LISTEN FOR NEWLY TYPEd MESSAGES, 
@@ -41,7 +37,8 @@ function newMessageSubmitted(event){
     // message
     let newMessage = msgInput.value
     console.log(newMessage);
-    appendMessage(newMessage);
+    if (!newMessage) return; //prevent blank messages
+    appendMessage(userName, newMessage); 
 
     // send the newMessage to the server 1st
     socket.emit("message", {sender:userName, text:newMessage});
@@ -54,11 +51,15 @@ function newMessageSubmitted(event){
 // APPEND THEM TO THE MESSAGE BOX
 // AUTO SCROLL TO BOTTOM
 socket.on("newMessage", function(data){
-    console.log(data);
+    if (data.sender === userName) return;
+    appendMessage(data.sender, data.text);
 });
 
 // APPEND MESSAGES TO BOX
-function appendMessage(txt){
+function appendMessage(sender, txt){
+    //prevent weird unknwon undefined messages
+    if (sender === 'unknown' || txt === undefined) return; 
+    
     console.log(txt);
     // select list (ul) first
     let chatThreadList = document.querySelector("#threadWrapper ul");
@@ -66,8 +67,13 @@ function appendMessage(txt){
 
     // create new list item (li)
     let newListItem = document.createElement("li");
-    newListItem.innerHTML = '<span class="who">' + userName + ':</span> <span class="words">' + txt + '</span>';    
-    
+    if (sender==='system'){                         // entry line
+        newListItem.className='system';
+        newListItem.textContent=txt;
+    }else{                                          // chat line
+        newListItem.innerHTML='<span class="who">'+sender+':</span> <span class="words">'+txt+'</span>';
+    }   
+
     // append new li to the list
     chatThreadList.append(newListItem);
 
