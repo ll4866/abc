@@ -16,7 +16,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     userName = trimmed;
 
     // replace with fixed label 
-    nameWrapper.innerHTML = '<span style="position:fixed; top:5px; left:5px; font-weight:bold; margin-bottom:8px;">' + userName + '</span>';
+    nameWrapper.innerHTML = '<span style="position:fixed; top:90px; left:5px; color:white; font-weight:bold;">' + 'User: ' + userName + '</span>';
 
     // announcement
     socket.emit('message', {sender:'system', text:userName + ' entered the chat'});
@@ -59,7 +59,7 @@ socket.on("newMessage", function(data){
 function appendMessage(sender, txt){
     //prevent weird unknwon undefined messages
     if (sender === 'unknown' || txt === undefined) return; 
-    
+
     console.log(txt);
     // select list (ul) first
     let chatThreadList = document.querySelector("#threadWrapper ul");

@@ -1,26 +1,58 @@
+/* GENERAL STYLES */
 body{
     margin: 0;
     overflow: hidden;
     height:100dvh;
 }
 
+/* TITLE */
+#chatHeader{
+    text-align: center;
+    font-style: italic;
+    color: white;
+    text-shadow: 2px 2px 8px rgba(255, 255, 241, 0.667);
+    margin: 5px 0 5px 0;
+}
+
+/* MAIN CHAT*/
 .main-wrapper{
     width:100%;
     height:100dvh;
-    background-color: rgb(204, 230, 255);
+    background-color: rgb(34, 23, 23);
     display: flex;
     flex-direction: column;
-    /* align-content: stretch; */
-    /* justify-content: space-between; */
     padding: 10px 5px;
-    /* padding-bottom: 15px; */
     box-sizing: border-box;
 }
 
+/* NAME INPUT */
+#nameWrapper input{
+    background-color: white;
+    padding: 2.5px 20px;
+    border: none;
+    border-radius: 5px;
+    height:20px;
+}
+
+#nameWrapper p{
+    display: inline;
+    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+}
+
+#nameWrapper button{
+    padding: 5px 15px;
+    border: none;
+    border-radius: 15px;
+    background-color: rgb(112, 93, 93);
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+/* CHAT THREAD */
 #threadWrapper{
-    background-color: rgb(242, 242, 242);
+    background-color: rgb(41, 39, 48);
     flex-grow: 1;
-    /* height: 625px; */
     margin: 15px 0px; 
     display: flex;
     flex-direction: column;
@@ -30,60 +62,70 @@ body{
 
 #threadWrapper ul{
     list-style: none;
-    /* margin:0; */
     padding:10px;
-
-    /* outline: 1px black dotted; */
     overflow: scroll;
 }
 
 #threadWrapper li{
-    /* background-color: blanchedalmond; */
     margin-top: 5px;
     padding: 5px 2px;
-    /* display: inline-block; */
 }
 
+/* ---- MESSAGE PARTS ------*/
+/* USER */
 .who{
-    background-color: rgba(184, 184, 238, 0.551);
+    color: rgb(176, 234, 244);
     margin-right: 3px;
     font-style: italic;
 }
 
+/* TEXT */
 .words{
-    background-color: rgba(173, 206, 227, 0.54); 
-    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
+    color: white; 
 }
 
 #threadWrapper li:nth-child(even){
     background-color: rgba(204, 230, 255, 0.245);
 }
 
-.system {
-    text-align: right;
-    font-style: italic;
-    color: #555;
-    margin-top: 5px;
-    padding: 5px 2px;
-}
-
+/* ----- CHAT FORM -----*/
 #chatForm{
     display: flex;
     justify-content: space-between;
+    gap: 4px;
 }
 
 #chatForm input{
     flex-grow: 1;
+    padding: 5px 5px;
+    border-radius: 5px;
     height:20px;
 }
 
-#nameWrapper input{
-    /* width: 100%; */
-    height:20px;
-    /* box-sizing: border-box; */
+#chatForm input::placeholder {
+    color: rgb(15, 0, 4);
 }
-#nameWrapper p{
-    display: inline;
-    font-family:'Franklin Gothic Medium', 'Arial Narrow', Arial, sans-serif;
 
+/* BUTTON */
+#chatForm button {
+    padding: 5px 15px;
+    border: none;
+    border-radius: 15px;
+    background-color: rgb(112, 93, 93);
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}  
+
+#chatForm button:hover {
+    background-color: rgb(212, 174, 174);
+}
+
+/* SYSTEM NOTIFICATION */
+.system {
+    text-align: right;
+    font-style: italic;
+    color: rgb(185, 185, 185);
+    margin-top: 5px;
+    padding: 5px 2px;
 }
