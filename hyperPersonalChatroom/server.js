@@ -35,11 +35,7 @@ io.on('connection', function(socket){
             sender: "unknown",
             message: IncomingMessage
         }
-
-        io.emit("newMessage", {
-            sender : socket.userName || "anon",
-            text   : incomingMessage
-        });
+        io.emit("newMessage", messageToAllClients);
     })
 
     socket.on('disconnect', function() {

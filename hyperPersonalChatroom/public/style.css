@@ -71,6 +71,7 @@ body{
     display: flex;
     justify-content: space-between;
 }
+
 #chatForm input{
     flex-grow: 1;
     height:20px;
