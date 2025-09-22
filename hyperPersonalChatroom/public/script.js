@@ -9,12 +9,14 @@ let nameInput = document.querySelector("#nameWrapper input");
 let nameTag   = document.querySelector("#nameWrapper p");
 let userName  = "";
 
-nameInput.addEventListener("change", function(){
+document.getElementById("nameBtn").addEventListener("click", function(){
+    // lock the chosen name and swap controls for plain text
     let trimmed = nameInput.value.trim();
     if(!trimmed) return;
     userName = trimmed;
-    nameInput.style.display = "none";
-    nameTag.textContent = userName;
+
+    // replace with fixed label inside #nameWrapper
+    nameWrapper.innerHTML = '<span style="position:fixed; top:5px; left:5px; font-weight:bold; margin-bottom:8px;">' + userName + '</span>';
 
     // announcement
     let entryLi = document.createElement('li');
@@ -53,7 +55,8 @@ function newMessageSubmitted(event){
 // AUTO SCROLL TO BOTTOM
 socket.on("newMessage", function(data){
     console.log(data);
-})
+    appendMessage(data.sender, data.text);
+});
 
 // APPEND MESSAGES TO BOX
 function appendMessage(txt){
@@ -64,11 +67,11 @@ function appendMessage(txt){
 
     // create new list item (li)
     let newListItem = document.createElement("li");
-    newListItem.innerHTML = '<span class="who">' + userName + ':</span> <span class="words">' + txt + '</span>';
+    newListItem.innerHTML = '<span class="who">' + sender + ':</span> <span class="words">' + txt + '</span>';
 
     // append new li to the list
     chatThreadList.append(newListItem);
 
     // scroll to bottom of textbox
-    chatThreadList.srollTop = chatThreadList.scrollHeight;
+    chatThreadList.scrollTop = chatThreadList.scrollHeight;
 }

@@ -27,7 +27,7 @@ io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
     socket.on("message", function(incomingMessage){
-        console.log("go a message", incomingMessage)
+        console.log("got a message", incomingMessage)
 
         // after receiving a msg from any one client,
         // we send them to all other clients;
@@ -35,7 +35,11 @@ io.on('connection', function(socket){
             sender: "unknown",
             message: IncomingMessage
         }
-        io.emit("newMessage", messageToAllClients);
+
+        io.emit("newMessage", {
+            sender : socket.userName || "anon",
+            text   : incomingMessage
+        });
     })
 
     socket.on('disconnect', function() {

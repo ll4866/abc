@@ -67,10 +67,6 @@ body{
     padding: 5px 2px;
 }
 
-/* .words{
-    background-color: blanchedalmond;
-} */
-
 #chatForm{
     display: flex;
     justify-content: space-between;
