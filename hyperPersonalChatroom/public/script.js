@@ -36,8 +36,8 @@ function newMessageSubmitted(event){
 
     // message
     let newMessage = msgInput.value
-    console.log(newMessage);
     if (!newMessage) return; //prevent blank messages
+    console.log(newMessage);
     appendMessage(userName, newMessage); 
 
     // send the newMessage to the server 1st

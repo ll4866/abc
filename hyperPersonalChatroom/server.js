@@ -26,11 +26,17 @@ const io = new Server(HTTPSserver);
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
-    socket.on("message", function(obj){
-        console.log("got a message", obj);
-        if (!obj || !obj.sender || !obj.text) return;
-        io.emit("newMessage", obj); 
-    });
+    socket.on("message", function(incomingMessage){
+        console.log("go new message:", incomingMessage);
+    
+        //receiving a msg from any one client, -> send them to all other clients:
+        let messageToAllClients = {
+            sender: incomingMessage.sender || "unknown",
+            message: incomingMessage.message || incomingMessage
+        }
+    
+        io.emit("newMessage", messageToAllClients);
+      });
 
     socket.on('disconnect', function() {
         console.log('someone disconnected', socket.id);
