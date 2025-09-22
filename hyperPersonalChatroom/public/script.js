@@ -16,7 +16,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     userName = trimmed;
 
     // replace with fixed label 
-    nameWrapper.innerHTML = '<span style="position:fixed; top:90px; left:5px; color:white; font-weight:bold;">' + 'User: ' + userName + '</span>';
+    nameWrapper.innerHTML = '<span style="position:fixed; top:95px; left:5px; color:white; font-weight:bold;">' + 'User: ' + userName + '</span>';
 
     // announcement
     socket.emit('message', {sender:'system', text:userName + ' entered the chat'});
@@ -36,8 +36,8 @@ function newMessageSubmitted(event){
 
     // message
     let newMessage = msgInput.value
-    if (!newMessage) return; //prevent blank messages
     console.log(newMessage);
+    if (!newMessage) return; //prevent blank messages
     appendMessage(userName, newMessage); 
 
     // send the newMessage to the server 1st
