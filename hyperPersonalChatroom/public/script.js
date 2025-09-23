@@ -71,7 +71,7 @@ function appendMessage(sender, txt){
         newListItem.className='system';
         newListItem.textContent=txt;
     }else{                                          // chat line
-        newListItem.innerHTML='<span class="who">'+sender+':</span> <span class="words">'+txt+'</span>';
+        newListItem.innerHTML='<img src="assets/profile.png" style="height:30px; border-radius:4px; vertical-align:middle; margin-left:6px;">' + '<span class="who">'+sender+':</span> <span class="words">'+txt+'</span>';
     }   
 
     // append new li to the list

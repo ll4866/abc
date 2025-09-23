@@ -27,7 +27,7 @@ io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
     socket.on("message", function(incomingMessage){
-        console.log("go new message:", incomingMessage);
+        console.log("got new message:", incomingMessage);
     
         //receiving a msg from any one client, -> send them to all other clients:
         let messageToAllClients = {
