@@ -29,13 +29,8 @@ io.on('connection', function(socket){
     socket.on("message", function(incomingMessage){
         console.log("got new message:", incomingMessage);
     
-        //receiving a msg from any one client, -> send them to all other clients:
-        let messageToAllClients = {
-            sender: incomingMessage.sender || "unknown",
-            message: incomingMessage.message || incomingMessage
-        }
-    
-        io.emit("newMessage", messageToAllClients);
+        // send incoming message to all other clients:
+        io.emit("messsage-from-server", incomingMessage);
       });
 
     socket.on('disconnect', function() {

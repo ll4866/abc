@@ -22,7 +22,7 @@ document.getElementById("nameBtn").addEventListener("click", function(){
     socket.emit('message', {sender:'system', text:userName + ' entered the chat'});
 });
 
-// LISTEN FOR NEWLY TYPEd MESSAGES, 
+// LISTEN FOR NEWLY TYPED MESSAGES, 
 // SEND THEM TO THE SERVER
 formElm.addEventListener("submit", newMessageSubmitted);
 
@@ -37,7 +37,11 @@ function newMessageSubmitted(event){
     // message
     let newMessage = msgInput.value
     console.log(newMessage);
-    if (!newMessage) return; //prevent blank messages
+
+    //prevent blank messages
+    if (!newMessage) return; 
+
+    // write message
     appendMessage(userName, newMessage); 
 
     // send the newMessage to the server 1st
@@ -50,27 +54,35 @@ function newMessageSubmitted(event){
 // LISTEN FOR NEW MESSAGES FROM SERVER
 // APPEND THEM TO THE MESSAGE BOX
 // AUTO SCROLL TO BOTTOM
-socket.on("newMessage", function(data){
-    if (data.sender === userName) return;
+socket.on("messsage-from-server", function(data){
+    console.log(data);
+
+    // prevent repetition of own message
+    if (data.sender === userName) return; 
+
+     // write message from server
     appendMessage(data.sender, data.text);
 });
 
 // APPEND MESSAGES TO BOX
 function appendMessage(sender, txt){
+    console.log(txt);
     //prevent weird unknwon undefined messages
     if (sender === 'unknown' || txt === undefined) return; 
 
-    console.log(txt);
     // select list (ul) first
     let chatThreadList = document.querySelector("#threadWrapper ul");
     console.log(chatThreadList);
 
     // create new list item (li)
     let newListItem = document.createElement("li");
-    if (sender==='system'){                         // entry line
+
+    // if the message is from the server it would name the user and text message
+    // if not it would swrite the message
+    if (sender==='system'){
         newListItem.className='system';
         newListItem.textContent=txt;
-    }else{                                          // chat line
+    }else{
         newListItem.innerHTML='<img src="assets/profile.png" style="height:30px; border-radius:4px; vertical-align:middle; margin-left:6px;">' + '<span class="who">'+sender+':</span> <span class="words">'+txt+'</span>';
     }   
 
