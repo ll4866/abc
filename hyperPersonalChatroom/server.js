@@ -31,7 +31,7 @@ io.on('connection', function(socket){
     
         // send incoming message to all other clients:
         io.emit("messsage-from-server", incomingMessage);
-      });
+    });
 
     socket.on('disconnect', function() {
         console.log('someone disconnected', socket.id);

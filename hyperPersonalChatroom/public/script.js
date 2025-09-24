@@ -1,8 +1,8 @@
-const socket = io();
+const socket  = io();
 
-let formElm = document.querySelector("#chatForm");
+let formElm   = document.querySelector("#chatForm");
 console.log(formElm);
-let msgInput = document.querySelector("#newMessage");
+let msgInput  = document.querySelector("#newMessage");
 console.log(msgInput);
 
 let nameInput = document.querySelector("#nameWrapper input");
@@ -73,6 +73,34 @@ function appendMessage(sender, txt){
     // select list (ul) first
     let chatThreadList = document.querySelector("#threadWrapper ul");
     console.log(chatThreadList);
+
+    // PICK SYSTEM
+    // only when 'pick' is written
+    if (sender !== 'system' && txt.trim().toLowerCase() === 'pick'){
+        // collect every .words text (newest → oldest) and listing them in an array
+        let allWords = Array.from(document.querySelectorAll('#threadWrapper li .words'))
+                            .map(w => w.textContent || w.innerText);
+
+        // from the list only the ones with the choices
+        for (let i = allWords.length - 1; i >= 0; i--){
+            let m = allWords[i];
+
+            // extract [Title] block
+            let matches = m.split('[').slice(1).map(s => s.split(']')[0]);
+
+            // >1 list of []
+            if (matches && matches.length >= 2){
+                // random pick from list
+                let titles = matches.map(s => s.trim());
+                let chosen = titles[Math.floor(Math.random() * titles.length)];
+                
+                // announce results
+                socket.emit('message', {sender:'system', text:'Suggestion: ' + chosen});
+                // only run once
+                break;   
+            }
+        }
+    }
 
     // create new list item (li)
     let newListItem = document.createElement("li");
