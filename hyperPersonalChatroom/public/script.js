@@ -1,4 +1,5 @@
-const socket  = io();
+const prefix = location.pathname.replace(/\/$/, '');      
+const socket = io({ path: prefix + '/socket.io' });
 
 let formElm   = document.querySelector("#chatForm");
 console.log(formElm);
