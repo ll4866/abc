@@ -33,6 +33,11 @@ io.on('connection', function(socket){
         socket.broadcast.emit('update', {id:socket.id, ...pos});
     });
 
+    socket.on('chat', function(data){
+        data.id = socket.id;           // stamp sender
+        socket.broadcast.emit('chat', data);
+    });
+
     socket.on('disconnect', function() {
         console.log('someone disconnected', socket.id);
         socket.broadcast.emit('left', socket.id);

@@ -4,3 +4,63 @@ body{
     overflow: hidden;
     height:100dvh;
 }
+
+/* CHAT BAR */
+#chatBar {
+  position: fixed;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+}
+
+#chatInput {
+  width: 240px;
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 2px solid rgba(8, 64, 8, 0.75);
+  border-radius: 20px;
+  outline: none;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+#chatSend {
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient( #38b854 0%, #084b10 100%);
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+
+#chatSend:hover {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  transform: scale(1.05);
+}
+
+/* REQUEST BUTTON */
+#requestOrientationButton {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 14px 28px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #fff;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 30px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, .25);
+}
+
+#requestOrientationButton:hover {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, .35);
+  transform: translate(-50%, -50%) scale(1.05);
+}

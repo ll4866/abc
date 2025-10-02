@@ -20,14 +20,19 @@
 </head>
 
 <body>
-  <button id="requestOrientationButton" onclick="requestOrientation()" style="position:fixed;top:100px;left:20px;">request orientation</button>
-
+  <button id="requestOrientationButton" onclick="requestOrientation()"> Allow Device Orientation </button>
+  
   <div class="main-wrapper">
     <!-- the following div will contain the p5 canvas. -->
     <div id="p5-canvas-container">
       <!-- p5 canvas will be appended here. -->
     </div>
 
+    <div id="chatBar">
+      <input id="chatInput" type="text" maxlength="40" placeholder="Type something…">
+      <button id="chatSend">send</button>
+    </div>
+    
   </div>
 
   <script src="requestOrientation.js"></script> 
