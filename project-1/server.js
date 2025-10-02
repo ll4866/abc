@@ -34,8 +34,16 @@ io.on('connection', function(socket){
     });
 
     socket.on('chat', function(data){
-        data.id = socket.id;           // stamp sender
+        data.id = socket.id; 
         socket.broadcast.emit('chat', data);
+    });
+
+    socket.on('freeze', function(data) {
+        socket.broadcast.emit('freeze', {partner: socket.id});
+    });
+    
+    socket.on('colour', data => {
+        socket.broadcast.emit('colour', data);   // stamp partner blue on all screens
     });
 
     socket.on('disconnect', function() {
