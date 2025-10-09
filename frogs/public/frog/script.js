@@ -27,6 +27,10 @@ readyButton.addEventListener("click", function(){
         frogIdx: frogIdx
     }
     socket.emit("my-role", data);
+
+    socket.on("make-sound",function(){
+        audioElm.play()
+    })
    
     // TESTING IF JS CAN PLAY THE AUDIO:
     setTimeout(function(){

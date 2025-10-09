@@ -23,6 +23,16 @@ socket.on("all-frogs", function(data){
     }
 })
 
+socket.on('new-frog', function(frog){
+    console.log('new frog entered id:', frog);
+    addFrog(frog.id, frog.frogIdx);
+})
+
+socket.on('delete-frog', function(data){
+    console.log('delete frog id:', data);
+    document.querySelector("#A" + data).remove();
+})
+
 function addFrog(socketID, frogIdx){
     let imgWrapper = document.createElement("div");
     imgWrapper.className = "img-wrap"
@@ -40,5 +50,6 @@ function addFrog(socketID, frogIdx){
             document.querySelector("#A"+socketID).style.opacity = 1;
         }, 500)
 
+        socket.emit('trigger-frog',socketID);
     })
 }

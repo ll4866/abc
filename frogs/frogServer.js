@@ -41,7 +41,7 @@ io.on('connection', (socket) => {
             let frogData = {
                 id: socket.id, frogIdx: data.frogIdx
             }
-            frogs.push({id: socket.id, frogIdx: data.frogIdx});
+            frogs.push(frogData);
             console.log(frogs);
            
             if(conductor){
@@ -70,6 +70,8 @@ io.on('connection', (socket) => {
         console.log("someone disconnected", socket.id)
         console.log(frogs);
 
+        // delete the frog from the array
+        // that keeps track of all from online
         let idx = frogs.findIndex(function(f){
             return f.id == socket.id
         });
