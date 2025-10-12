@@ -1,6 +1,5 @@
 // window.addEventListener("deviceorientation", handleOrientation, true); // can be deleted later
 
-
 function handleOrientation(eventData){
     console.log(eventData);
 
