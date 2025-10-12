@@ -21,9 +21,37 @@ const { Server } =  require('socket.io'); // include library
 const { IncomingMessage } = require('http');
 const io = new Server(HTTPSserver);
 
+let shapeVertexes = [];
+let lastCount     = 0;  
+let minW          = Infinity;
+let minH          = Infinity;
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
-    
+
+    socket.on('count', function(data) {
+        if (data.w < minW) {
+            minW = data.w;
+        }
+        if (data.h < minH) {
+            minH = data.h;
+        }
+        // console.log('size', minW, minH);
+
+        if (data.c !== lastCount) {
+            lastCount = data.c;
+            // console.log(data.c);
+            shapeVertexes = [];
+            for (let i = 0; i < data.c; i++) {
+                shapeVertexes.push({
+                    x: Math.random() * minW,
+                    y: Math.random() * minH
+                });
+            }
+            // console.log(shapeVertexes);
+            io.emit('shape', shapeVertexes); 
+        }
+    });
+
     // LISTENING FOR POSITION FROM OTHERS
     socket.on('move', function(posData){
         // console.log('Locator:', position);
