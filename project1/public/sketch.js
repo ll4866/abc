@@ -9,13 +9,16 @@ const bubbles   = {};
 
 // DEVICE ORIENTATION VARIABLES
 let alpha, beta, gamma = 0;
+let lastB, lastG = 0;
 
 // USERS VARIABLES
 let myID; 
 let myX, myY;
-let mySpeed = 0.02;
-const others           = {};
-const allINFO          = {};
+let mySpeed            = 0.02;
+let boost              = 1;
+const othersPOS           = {};
+const allPOS         = {};
+const allTILT          = {};
 
 // TOUCH VARIABLE
 let touchStartTime = 0;   
@@ -43,6 +46,7 @@ function setup() {
 function draw() {
     background(143, 220, 227);
     
+    /*----------------------------------------------*/
     /* --- INFORMATION --- */
     // table
     fill(255, 200);
@@ -50,10 +54,11 @@ function draw() {
     rect(width-85,10, 70, 50, 6);
 
     // text
-    let currentTotal = Object.keys(allINFO).length;
+    let currentTotal = Object.keys(allPOS).length;
     if ( numberOfDevices !== currentTotal) {
         numberOfDevices = currentTotal;
 
+        // SENDING number of devices and frame size
         socket.emit('count', {c: numberOfDevices, w: windowWidth, h: windowHeight});
         // console.log('ℹ️ Number of Devivce:', numberOfDevices);
     }
@@ -65,6 +70,7 @@ function draw() {
     text("gamma: "  + round(gamma),     width - 80, 35);
     text("devices: "+ numberOfDevices,  width - 80, 48);   
 
+    /*----------------------------------------------*/
     /* --- MOVEMENT --- */
     // default center location
     if (gamma == undefined || beta  === undefined){
@@ -72,13 +78,28 @@ function draw() {
         beta  = 0;
     }
 
-    // movement
-    myX += gamma * mySpeed;  
-    myY += beta  * mySpeed; 
+    // sending tilt to other users
+    // they should not be undefined
+    if (gamma !== undefined && beta  !== undefined) {
+        // they should not be neutral
+        if (beta !== 0 && gamma !== 0 ){
+            // they should be new
+            if (lastG != round(gamma) || lastB != round(beta)){
+                lastB = round(beta);
+                lastG = round(gamma);
+                // SENDING information of my object's tilt
+                socket.emit('tilt', { id: myID, g: lastG, b: lastB });
+            }
+        }
+    }
+    
+    // movement equation
+    myX += gamma * mySpeed * boost;
+    myY += beta  * mySpeed * boost;
     myX = constrain(myX, 25, width  - 25);
     myY = constrain(myY, 25, height - 25);
 
-    // speed
+    // speed when touched
     if (touching) {
         // when touching, increase speed
         mySpeed = constrain(
@@ -100,12 +121,12 @@ function draw() {
     /* --- DRAWING OF USERS --- */
     // drawing lines connecting
     drawConnections(shapeVertexes);
-    drawConnections(Object.values(allINFO));
+    drawConnections(Object.values(allPOS));
     
     // other user
-    for (let id in others) {
+    for (let id in othersPOS) {
         // get position of the given ID
-        const position = others[id];
+        const position = othersPOS[id];
         fill(0);
         ellipse(position.x, position.y, 30);
 
@@ -123,40 +144,73 @@ function draw() {
     drawBubble(bubbles['me'], myX, myY)
 }
 
+// DRAWING SHAPE
+function drawConnections(data) {
+    if (data.length < 2) return;
+
+    if(data === shapeVertexes){
+        stroke(255, 0, 0);
+    } else {
+        stroke(0);
+    }
+    strokeWeight(1.5);
+    noFill();
+
+    // first vertex
+    let prev = data[0];
+
+    // connect 1st with 2nd, 2nd with 3rd...
+    for (let i = 1; i < data.length; i++) {
+        const curr = data[i];
+        line(prev.x, prev.y, curr.x, curr.y);
+        prev = curr;
+    }
+    // close the loop: last → first
+    const first = data[0];
+    line(prev.x, prev.y, first.x, first.y);
+    
+    // vertexes
+    for (const p of data) {
+        for (let i = 1; i < 4; i++){
+            circle(p.x, p.y, 6 * i);
+        }
+    }
+}
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
-// listening to know my ID
+// LISTENING to know my ID
 socket.on('connect', function(){ 
     myID = socket.id;
     needsShape = true;
     // console.log('ℹ️ My socket id:', myId);
 });
 
+// LISTENING for the desired shape
 socket.on('shape', function(data){
     shapeVertexes = data;
     // console.log('ℹ️ Vertex data', data);
 })
 
-// listening for 'other' users location data
+// LISTENING for 'other' users location data
 socket.on('update', function(data) {
     if (data.id !== undefined) {
-        allINFO[data.id] = { 
+        allPOS[data.id] = { 
             x: data.x, 
             y: data.y 
         };
-        // console.log('ℹ️ All user data:', allINFO);
+        // console.log('ℹ️ All user position data:', allPOS);
 
         if(data.id !== myID){
-            others[data.id] = {
+            othersPOS[data.id] = {
                 x: data.x, 
                 y: data.y 
             }
         }
-        // console.log('ℹ️ Other user data', others);
+        // console.log('ℹ️ Other user position data', othersPOS);
     }
 });
 
-// listening for chatmessage info
+// LISTENING for chatmessage info
 socket.on('allChat', function(data){
     // ignore if we don’t know the sender yet
     if (data.id !== myID) {
@@ -169,13 +223,19 @@ socket.on('allChat', function(data){
     }
 });
 
-// listening for disconnected users
-socket.on('left', function(id){
-    // console.log('ℹ️ A user left');
-    delete others[id];
-    delete allINFO[id];
+// LISTENING for if there is 2 users similar tilr
+socket.on('allTilt', function(data){ 
+    boost = data;
+    // console.log('ℹ️ Other user tilt data', allTILT);
 });
 
+// LISTENING for disconnected users
+socket.on('left', function(id){
+    // console.log('ℹ️ A user left');
+    delete othersPOS[id];
+    delete allPOS[id];
+    delete allTILT[id];
+});
 /*----------------------------------------------*/
 // CHAT CONTROLS
 chatSend.addEventListener('click', function() {
@@ -202,7 +262,7 @@ function sendChat(data) {
     // show message locally
     bubbles['me'] = pack;
 
-    // send my message to other users
+    // SENDING my message to others
     socket.emit('chat', pack);
 
     // clear chatbox
@@ -289,41 +349,9 @@ function touchEnded() {
 // ORIENTATION
 function handleOrientation(eventData){
     document.querySelector('#requestOrientationButton').style.display = "none";
-    console.log('ℹ️ Orientation:', eventData.alpha, eventData.beta, eventData.gamma);
+    // console.log('ℹ️ Orientation:', eventData.alpha, eventData.beta, eventData.gamma);
     
     alpha = eventData.alpha;
     beta = eventData.beta;
     gamma = eventData.gamma;      
-}
-
-function drawConnections(data) {
-    if (data.length < 2) return;
-
-    if(data === shapeVertexes){
-        stroke(255, 0, 0);
-    } else {
-        stroke(0);
-    }
-    strokeWeight(1.5);
-    noFill();
-
-    // first vertex
-    let prev = data[0];
-
-    // connect 1st with 2nd, 2nd with 3rd...
-    for (let i = 1; i < data.length; i++) {
-        const curr = data[i];
-        line(prev.x, prev.y, curr.x, curr.y);
-        prev = curr;
-    }
-    // close the loop: last → first
-    const first = data[0];
-    line(prev.x, prev.y, first.x, first.y);
-    
-    // vertexes
-    for (const p of data) {
-        for (let i = 1; i < 4; i++){
-            circle(p.x, p.y, 6 * i);
-        }
-    }
 }
