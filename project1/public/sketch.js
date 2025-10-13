@@ -175,6 +175,7 @@ function drawConnections(data) {
             circle(p.x, p.y, 6 * i);
         }
     }
+    noStroke();
 }
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION

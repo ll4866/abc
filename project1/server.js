@@ -57,10 +57,10 @@ io.on('connection', function(socket){
                     y: Math.random() * minH
                 });
             }
-            // console.log(shapeVertexes);
 
             // SENDING made shape to all users
             io.emit('shape', shapeVertexes); 
+            // console.log(shapeVertexes);
         }
     });
 
