@@ -28,6 +28,7 @@ let minH                = Infinity;
 let tilts               = [];
 let maxTilt             = 20;
 let boost               = 1;
+let translationSPD      = 5;
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
@@ -73,14 +74,14 @@ io.on('connection', function(socket){
 
     // LISTENING FOR CHAT FROM OTHERS
     // SENDING TO ALL THIS INFO
-    socket.on('chat', function(data){
-        console.log('Message:', data);
-        io.emit('allChat', data);
+    socket.on('chat', function(msg){
+        console.log('Message:', msg);
+        io.emit('allChat', msg);
     });
 
     // LISTENING FOR TILT FROM OTHERS
     // SENDING TO ALL THIS INFO
-    socket.on('tilt', function( t ) {
+    socket.on('tilt', function(t) {
         // console.log(t);
 
         // looking based on id if there is a match
@@ -110,6 +111,10 @@ io.on('connection', function(socket){
             const crossed = tilts.filter(function(t){
                 return Math.abs(t.gamma) > maxTilt || Math.abs(t.beta) > maxTilt;
             });
+
+            // change the shape position
+            let dx = 0, dy = 0;
+
             // if more than 2 users crossed
             if (crossed.length >= 2) {
                 // console.log('[2-TILT-CROSSED]', tilts);
@@ -131,6 +136,19 @@ io.on('connection', function(socket){
                     } else if (t.beta < -maxTilt) {
                         counters.betaNeg++;
                     }
+
+                    
+                }
+
+                // based on tilt, translation
+                if (counters.gammaPos >= 2) {
+                    dx = -translationSPD;
+                } else if (counters.gammaNeg >= 2){
+                    dx = translationSPD;
+                } if (counters.betaPos >= 2) {
+                    dy = -translationSPD; 
+                } else if(counters.betaNeg >= 2){
+                    dy = translationSPD;
                 }
 
                 // check if any count is above 2
@@ -138,6 +156,27 @@ io.on('connection', function(socket){
                     // console.log('condition met');
                     boost = 2.5;
                     io.emit('allTilt', boost);
+                }
+
+                // if there is a change in translation infor
+                if (dx !== 0 || dy !== 0) {
+                    for (let i = 0; i < shapeVertexes.length; i++) {
+                        // translation
+                        let nx = shapeVertexes[i].x + dx;
+                        let ny = shapeVertexes[i].y + dy;
+
+                        // if translation exit frame, random location
+                        if (nx < 0 || nx > minW || ny < 0 || ny > minH) {
+                            nx = Math.random() * minW;
+                            ny = Math.random() * minH;
+                        }
+
+                        // store new position
+                        shapeVertexes[i].x = nx;
+                        shapeVertexes[i].y = ny;
+                    }
+                    // SENDING update shape
+                    io.emit('shape', shapeVertexes);
                 }
             } else {
                 // normal boost if none of the condition is met
