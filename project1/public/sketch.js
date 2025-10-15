@@ -44,7 +44,27 @@ function setup() {
 }
 
 function draw() {
-    background(143, 220, 227);
+    background(10, 15, 30); 
+
+    // gradient background
+    for (let i = 0; i < height; i += 3) {
+        let a = map(i, 0, height, 80, 15);
+        stroke(120, 160, 255, a);
+        strokeWeight(width / 60);  
+        line(0, i, width, i);
+    }
+
+    // stars background
+    randomSeed(31415); 
+    for (let i = 0; i < 250; i++) {
+        let x = random(width);
+        let y = random(height);
+        let s = random(1.2, 4);
+        let tw = 60 + 25 * sin(millis() * 0.002 + i);
+        stroke(255, 255, 220, tw);
+        strokeWeight(s);
+        point(x, y);
+    }
     
     /*----------------------------------------------*/
     /* --- INFORMATION --- */
@@ -127,14 +147,14 @@ function draw() {
     for (let id in othersPOS) {
         // get position of the given ID
         const position = othersPOS[id];
-        fill(0);
-        ellipse(position.x, position.y, 30);
+        fill(160, 220, 235);
+        ellipse(position.x, position.y, 15);
 
         drawBubble(bubbles[id], position.x, position.y)
     }
 
     // this user
-    fill(255,0,0);
+    fill(102, 126, 23);
     ellipse(myX, myY, 30);
     textAlign(CENTER, CENTER);
     fill(255);
@@ -151,7 +171,7 @@ function drawConnections(data) {
     if(data === shapeVertexes){
         stroke(255, 0, 0);
     } else {
-        stroke(0);
+        stroke(160, 220, 235);
     }
     strokeWeight(1.5);
     noFill();
@@ -278,14 +298,17 @@ function drawBubble(id, x, y){
     let bubbleMargin = 4;
     let bubbleX = 20;
     let bubbleY = 30;
+    let adjust = 0;
 
     if (id){
         // bubble
         if(id != bubbles['me']){
             fill( 255, 255, 0, 200);
+            adjust = -10;
         } else {
             fill(255);
             bubbleX = -bubbleX;
+            adjust = 0;
         }
         rect(
             x - textWidth(id.text)/2 - bubbleMargin + bubbleX, 
@@ -298,7 +321,7 @@ function drawBubble(id, x, y){
         // text
         fill(0);
         text(id.text,
-            x + bubbleX, 
+            x + bubbleX + adjust, 
             y - bubbleY
         );
 

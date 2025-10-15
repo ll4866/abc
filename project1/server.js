@@ -28,7 +28,17 @@ let minH                = Infinity;
 let tilts               = [];
 let maxTilt             = 20;
 let boost               = 1;
-let translationSPD      = 5;
+
+/* USE RTESTING: 
+- REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
+- LOOS LIKE CONSTELLATION COULD CONNECT AND FURTHER (SET PATTERN)
+- SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
+- NAMING TO KNOW WHO IS WHO
+- INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
+- MESSAGE FIXES (ENABLE)
+*/
+
+let translationSPD      = 2;
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
@@ -75,7 +85,7 @@ io.on('connection', function(socket){
     // LISTENING FOR CHAT FROM OTHERS
     // SENDING TO ALL THIS INFO
     socket.on('chat', function(msg){
-        console.log('Message:', msg);
+        // console.log('Message:', msg);
         io.emit('allChat', msg);
     });
 
