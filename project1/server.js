@@ -26,11 +26,12 @@ let lastCount           = 0;
 let minW                = Infinity;
 let minH                = Infinity;  
 let tilts               = [];
-let maxTilt             = 20;
-let boost               = 1;
+let maxTilt             = 30;
+let boost               = 5;
+let noBoost             = 1;
 
-/* USE RTESTING: 
-- REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
+/* USER TESTING: 
+✅ REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
 - LOOS LIKE CONSTELLATION COULD CONNECT AND FURTHER (SET PATTERN)
 - SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
 - NAMING TO KNOW WHO IS WHO
@@ -38,16 +39,15 @@ let boost               = 1;
 - MESSAGE FIXES (ENABLE)
 */
 
-let translationSPD      = 2;
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
     // LISTENING FOR NUMBER OF DEVICES
-    // IF CHANGED, MAKE A NEW SHAPE
-    // SEND TO ALL NEW SHAPE
+    // IF NUMBER CHANGED, MAKE A NEW SHAPE
+    // SEND TO ALL CLIENTS NEW SHAPE
     socket.on('count', function(data) {
         if (data.c !== lastCount) {
-            // recording smallest canvas
+            // RECORDING SMALLEST CANVAS
             if (data.w < minW) {
                 minW = data.w;
             }
@@ -56,11 +56,11 @@ io.on('connection', function(socket){
             }
             // console.log('size', minW, minH);
             
-            // record new count
+            // RECORD NEW COUNT OF DEVICES
             // console.log(data.c);
             lastCount = data.c;
             
-            // new shape
+            // CREATE SHAPE
             shapeVertexes = [];
             for (let i = 0; i < data.c; i++) {
                 shapeVertexes.push({
@@ -69,35 +69,37 @@ io.on('connection', function(socket){
                 });
             }
 
-            // SENDING made shape to all users
+            // SENDING TO ALL CLIENTS SHAPE
             io.emit('shape', shapeVertexes); 
             // console.log(shapeVertexes);
         }
     });
 
     // LISTENING FOR POSITION FROM OTHERS
-    // SENDING TO ALL THIS INFO
+    // SENDING TO ALL CLEINTS THIS INFO
     socket.on('move', function(posData){
         // console.log('Locator:', position);
         io.emit('update', posData);
     });
 
-    // LISTENING FOR CHAT FROM OTHERS
-    // SENDING TO ALL THIS INFO
+    // LISTENING FOR CHAT FROM OTHERS CLIENTs
+    // SENDING TO ALL CLIENTS THIS INFO
     socket.on('chat', function(msg){
         // console.log('Message:', msg);
         io.emit('allChat', msg);
     });
 
-    // LISTENING FOR TILT FROM OTHERS
+    // LISTENING FOR TILT FROM OTHER CLIENTS
     // SENDING TO ALL THIS INFO
     socket.on('tilt', function(t) {
         // console.log(t);
 
-        // looking based on id if there is a match
+        // SAVING CLIENTS TILTS
+        // SEARCH FOR CLIENT MATCH STORED ID
         const idx = tilts.findIndex(e => e.id === (t.id || this.id));
+        // IF NO MATCH
         if (idx === -1) {
-            // if no match, add into array
+            // ADD NEW ID
             tilts.push({ 
                 id: t.id || this.id, 
                 gamma: t.g, 
@@ -105,9 +107,8 @@ io.on('connection', function(socket){
             });
             // console.log('[TILT-ADD]', tilts);
         } else { 
-            // if there is a match, 
-            // if there is a change, update array
             const old = tilts[idx];
+            // UPDATE ARRAY VALUES IF THERE IS A CHANGE
             if (old.gamma !== t.g || old.beta !== t.b) {
                 old.gamma = t.g;
                 old.beta  = t.b;
@@ -115,27 +116,23 @@ io.on('connection', function(socket){
             }
         }
 
-        // needs more than one tilt to compare
+        // REQUIRE > 1 TILT
         if (tilts.length >= 2) {
-            // look for any user that tilt above absolute 50
+
+            // SEARCH AND STORE NUMBER OF CLIENTS WITH >|maxTilt|
             const crossed = tilts.filter(function(t){
                 return Math.abs(t.gamma) > maxTilt || Math.abs(t.beta) > maxTilt;
             });
 
-            // change the shape position
-            let dx = 0, dy = 0;
-
-            // if more than 2 users crossed
+            // IF MORE THAN 2 CLIENTS MET THE CONDITION
             if (crossed.length >= 2) {
                 // console.log('[2-TILT-CROSSED]', tilts);
                 
-                // count how many user go above in what direction
+                // COUNT HOW MANY CLIENTS GOT TO WHAT DIRECTION
                 const counters = {
                     gammaPos: 0, gammaNeg: 0,
                     betaPos:  0, betaNeg:  0
                 };
-
-                // add to count if a user is above 50
                 for (const t of crossed) {
                     if (t.gamma > maxTilt){
                         counters.gammaPos++;
@@ -146,63 +143,33 @@ io.on('connection', function(socket){
                     } else if (t.beta < -maxTilt) {
                         counters.betaNeg++;
                     }
-
-                    
                 }
 
-                // based on tilt, translation
-                if (counters.gammaPos >= 2) {
-                    dx = -translationSPD;
-                } else if (counters.gammaNeg >= 2){
-                    dx = translationSPD;
-                } if (counters.betaPos >= 2) {
-                    dy = -translationSPD; 
-                } else if(counters.betaNeg >= 2){
-                    dy = translationSPD;
-                }
-
-                // check if any count is above 2
-                const ok = Object.values(counters).some(c => c >= 2);                if (ok) {
-                    // console.log('condition met');
-                    boost = 2.5;
+                // IF ANY COUNT IS ABOVE 2, BOOST SPEED
+                const ok = Object.values(counters).some(c => c >= 2);
+                if (ok) {
                     io.emit('allTilt', boost);
-                }
-
-                // if there is a change in translation infor
-                if (dx !== 0 || dy !== 0) {
-                    for (let i = 0; i < shapeVertexes.length; i++) {
-                        // translation
-                        let nx = shapeVertexes[i].x + dx;
-                        let ny = shapeVertexes[i].y + dy;
-
-                        // if translation exit frame, random location
-                        if (nx < 0 || nx > minW || ny < 0 || ny > minH) {
-                            nx = Math.random() * minW;
-                            ny = Math.random() * minH;
-                        }
-
-                        // store new position
-                        shapeVertexes[i].x = nx;
-                        shapeVertexes[i].y = ny;
-                    }
-                    // SENDING update shape
-                    io.emit('shape', shapeVertexes);
-                }
+                    // console.log('condition met')
+                } else {
+                    io.emit('allTilt', noBoost);
+                    // console.log('condition not met');    
+                }                      
             } else {
-                // normal boost if none of the condition is met
-                boost = 1;
-                io.emit('allTilt', boost);
-                // console.log('condition not met');
+                io.emit('allTilt', noBoost);
             }
-        } 
+        } else {
+            io.emit('allTilt', noBoost);
+        }
     });
 
-    // LISTENING FOR A USER LEAVING
-    // SENDING TO ALL THIS INFO
+    // LISTENING FOR A LEAVING CLIENT
+    // SENDING TO ALL CLIENTS THIS INFO
+    // ERASE THAT CLIENT FROM DATA
     socket.on('disconnect', function() {
         console.log('someone disconnected', socket.id);
         io.emit('left', socket.id);
 
+        // REMOVE TILT CLIENT
         const idx = tilts.findIndex(e => e.id === socket.id);
         if (idx !== -1) {
             tilts.splice(idx, 1); 

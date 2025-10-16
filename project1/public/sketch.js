@@ -6,6 +6,7 @@ const socket = io({ path: prefix + '/socket.io' });
 const chatInput = document.querySelector('#chatInput');
 const chatSend  = document.querySelector('#chatSend');
 const bubbles   = {};
+const expirePeriod = 1000;
 
 // DEVICE ORIENTATION VARIABLES
 let alpha, beta, gamma = 0;
@@ -14,29 +15,33 @@ let lastB, lastG = 0;
 // USERS VARIABLES
 let myID; 
 let myX, myY;
-let mySpeed            = 0.02;
-let boost              = 1;
-const othersPOS           = {};
-const allPOS         = {};
-const allTILT          = {};
+let mySpeed         = 0.001;
+let boost           = 1;
+const othersPOS     = {};
+const allPOS        = {};
+const allTILT       = {};
 
 // TOUCH VARIABLE
-let touchStartTime = 0;   
-let touching = false;
-const MIN_SPEED = 0.02;   // base speed
-const MAX_SPEED = 0.1;
-const RAMP_MS   = 1500;   // time to increase from 0→max
-const FADE_MS   = 800;    // time back to normal speed
+let touchStartTime  = 0;   
+let touching        = false;
+const MIN_SPEED     = 0.02;
+const MAX_SPEED     = 0.1;
+const RAMP_MS       = 1500;
+const FADE_MS       = 800;
 
 // SHAPE
 let numberOfDevices = 0; 
 let shapeVertexes = []; 
 
+/* NOTES: 
+- ADDING DIRECTION ARROW AND SPEED UP FOR BOOST
+*/
+
 /*----------------------------------------------*/
 function setup() {
     let canvas = createCanvas(windowWidth, windowHeight);
 
-    // random position
+    // RANDOM CLIENT STARTING POSITION
     myX = random(width);
     myY = random(height);
 
@@ -46,7 +51,7 @@ function setup() {
 function draw() {
     background(10, 15, 30); 
 
-    // gradient background
+    // GRADIENT BACKGROUND
     for (let i = 0; i < height; i += 3) {
         let a = map(i, 0, height, 80, 15);
         stroke(120, 160, 255, a);
@@ -54,7 +59,7 @@ function draw() {
         line(0, i, width, i);
     }
 
-    // stars background
+    // STARS
     randomSeed(31415); 
     for (let i = 0; i < 250; i++) {
         let x = random(width);
@@ -68,12 +73,12 @@ function draw() {
     
     /*----------------------------------------------*/
     /* --- INFORMATION --- */
-    // table
+    // TABLE
     fill(255, 200);
     stroke(0);
     rect(width-85,10, 70, 50, 6);
 
-    // text
+    // TEXT
     let currentTotal = Object.keys(allPOS).length;
     if ( numberOfDevices !== currentTotal) {
         numberOfDevices = currentTotal;
@@ -92,82 +97,76 @@ function draw() {
 
     /*----------------------------------------------*/
     /* --- MOVEMENT --- */
-    // default center location
+    // DEFAULT TILT
     if (gamma == undefined || beta  === undefined){
         gamma = 0;
         beta  = 0;
-    }
-
-    // sending tilt to other users
-    // they should not be undefined
-    if (gamma !== undefined && beta  !== undefined) {
-        // they should not be neutral
+    } else {
+        // THEY SHOULD NOT BE 0
         if (beta !== 0 && gamma !== 0 ){
-            // they should be new
+            // UPDATE ONLY NEW MOVEMENT
             if (lastG != round(gamma) || lastB != round(beta)){
                 lastB = round(beta);
                 lastG = round(gamma);
-                // SENDING information of my object's tilt
+                // SENDING CLIENT's TILT
                 socket.emit('tilt', { id: myID, g: lastG, b: lastB });
             }
         }
     }
     
-    // movement equation
+    // MOVEMENT EQUATION
     myX += gamma * mySpeed * boost;
     myY += beta  * mySpeed * boost;
     myX = constrain(myX, 25, width  - 25);
     myY = constrain(myY, 25, height - 25);
 
-    // speed when touched
+    // SPEED UP WHEN TOUCHED
     if (touching) {
-        // when touching, increase speed
+        // GRADUAL SPEED UP
         mySpeed = constrain(
             MIN_SPEED + (MAX_SPEED - MIN_SPEED) * ((millis() - touchStartTime) / RAMP_MS),
             MIN_SPEED, MAX_SPEED
         );
     } else {
-        // when released, decrease to normal
+        // GRADUAL DECREASE
         mySpeed = constrain(
             mySpeed - (MAX_SPEED - MIN_SPEED) / (FADE_MS / deltaTime),
             MIN_SPEED, MAX_SPEED
         );
     }
 
-    // SENDING information of my object's movement
+    // SENDING TO SERVER CLIENT'S MOVEMENT
     socket.emit('move', {id: myID, x:myX, y:myY});
 
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
-    // drawing lines connecting
+    // DRAWING LINES CONNECTING
     drawConnections(shapeVertexes);
     drawConnections(Object.values(allPOS));
     
-    // other user
+    // DRWAWING OTHER CLIENTS
     for (let id in othersPOS) {
-        // get position of the given ID
         const position = othersPOS[id];
         fill(160, 220, 235);
         ellipse(position.x, position.y, 15);
-
         drawBubble(bubbles[id], position.x, position.y)
     }
 
-    // this user
+    // DRAW THIS CLIENT
     fill(102, 126, 23);
     ellipse(myX, myY, 30);
     textAlign(CENTER, CENTER);
     fill(255);
     text('Me', myX, myY);  
-
-    // my message
-    drawBubble(bubbles['me'], myX, myY)
+    drawBubble(bubbles['me'], myX, myY);
 }
 
 // DRAWING SHAPE
 function drawConnections(data) {
+    // ONLY IF THERE ARE >2 CLIENTS
     if (data.length < 2) return;
 
+    // COLOR CHANGE BASED ON GOAL VS CLIENTs
     if(data === shapeVertexes){
         stroke(255, 0, 0);
     } else {
@@ -176,51 +175,54 @@ function drawConnections(data) {
     strokeWeight(1.5);
     noFill();
 
-    // first vertex
-    let prev = data[0];
 
-    // connect 1st with 2nd, 2nd with 3rd...
+    // DRAWING LINE CONNECTING 
+    let prev = data[0];
     for (let i = 1; i < data.length; i++) {
         const curr = data[i];
         line(prev.x, prev.y, curr.x, curr.y);
         prev = curr;
     }
-    // close the loop: last → first
     const first = data[0];
     line(prev.x, prev.y, first.x, first.y);
     
-    // vertexes
-    for (const p of data) {
-        for (let i = 1; i < 4; i++){
-            circle(p.x, p.y, 6 * i);
+    // DRAWING VERTEXES
+    if(data === shapeVertexes){
+        for (const p of data) {
+            for (let i = 1; i < 4; i++){
+                circle(p.x, p.y, 6 * i);
+            }
         }
     }
     noStroke();
 }
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
-// LISTENING to know my ID
+// LISTENING FOR MY CLIENT ID
 socket.on('connect', function(){ 
     myID = socket.id;
     needsShape = true;
     // console.log('ℹ️ My socket id:', myId);
 });
 
-// LISTENING for the desired shape
+// LISTENING FOR GOAL SHAPE
 socket.on('shape', function(data){
     shapeVertexes = data;
     // console.log('ℹ️ Vertex data', data);
 })
 
-// LISTENING for 'other' users location data
+// LISTENING FOR OTHER CLIENT LOCATION
 socket.on('update', function(data) {
+    // PREVENT UNDEFINED CLIENT
     if (data.id !== undefined) {
+        // SAVE ALL CLIENTS
         allPOS[data.id] = { 
             x: data.x, 
             y: data.y 
         };
         // console.log('ℹ️ All user position data:', allPOS);
 
+        // SAVE ALL OTHER CLIENTS
         if(data.id !== myID){
             othersPOS[data.id] = {
                 x: data.x, 
@@ -231,31 +233,33 @@ socket.on('update', function(data) {
     }
 });
 
-// LISTENING for chatmessage info
+// LISTENING FOR CHATMESSAGE INFO
 socket.on('allChat', function(data){
-    // ignore if we don’t know the sender yet
+    // IGNORE IF IT IS MY MESSAGE
     if (data.id !== myID) {
-        // store data into bubbles
-        bubbles[data.id] = { 
+        // STORE INFO
+        bubbles[data.id] = {
             text: data.text, 
-            expirationTime: data.expirationTime 
+            time: millis() + expirePeriod
         };
-        // console.log('ℹ️ chat:', data);
+        // console.log('ℹ️ chat:', bubbles[data.id]);
+        // console.log('current time:', millis());
     }
 });
 
-// LISTENING for if there is 2 users similar tilr
+// LISTENING FOR TILT CONDITION
 socket.on('allTilt', function(data){ 
     boost = data;
-    // console.log('ℹ️ Other user tilt data', allTILT);
+    // console.log('ℹ️ Other user tilt data', data);
 });
 
-// LISTENING for disconnected users
+// LISTENING FOR DISCONNECTED CLIENT
 socket.on('left', function(id){
-    // console.log('ℹ️ A user left');
+    // REMOVE DATA ABOUT THEM
     delete othersPOS[id];
     delete allPOS[id];
     delete allTILT[id];
+      // console.log('ℹ️ A user left');
 });
 /*----------------------------------------------*/
 // CHAT CONTROLS
@@ -264,70 +268,72 @@ chatSend.addEventListener('click', function() {
 });
 
 chatInput.addEventListener('keyup', function(e){ 
-    if (e.key === 'Enter') sendChat(); 
+    if (e.key === 'Enter') {
+        sendChat(); 
+    }
 });
 
-function sendChat(data) {
+// CHAT FUNCTION
+function sendChat() {
     const txt = chatInput.value.trim();
 
-    // ignore empthy textbox
+    // IGNORE EMPTYBOX
     if (!txt) return;
 
-    // 5 second expiration time
+    // ADDING EXPIRATION TIME AND SAVING DATA
     const pack = {
-        id: myID, 
         text: txt, 
-        expirationTime: millis() + 5000
+        time: millis() + expirePeriod
     };
-
-    // show message locally
     bubbles['me'] = pack;
+    // console.log('ℹ️ chat:', bubbles['me']);
+    // console.log('current time:', millis());
 
-    // SENDING my message to others
+    // SENDING MY MESSAGE TO SERVER
     socket.emit('chat', pack);
 
-    // clear chatbox
+    // CLEAR CHATBOX
     chatInput.value = '';
 
-    // hide mobile keyboard
+    // HIDE MOBILE KEYBOARD
     chatInput.blur();
 }
 
 function drawBubble(id, x, y){
-    // bubble textbox
+    // BUBBLE TEXTBOX
     let bubbleMargin = 4;
     let bubbleX = 20;
     let bubbleY = 30;
     let adjust = 0;
 
     if (id){
-        // bubble
-        if(id != bubbles['me']){
-            fill( 255, 255, 0, 200);
-            adjust = -10;
-        } else {
-            fill(255);
-            bubbleX = -bubbleX;
-            adjust = 0;
-        }
-        rect(
-            x - textWidth(id.text)/2 - bubbleMargin + bubbleX, 
-            y - bubbleY - 10,
-            textWidth(id.text) + 2 * bubbleMargin,
-            20, 
-            8
-        );
-        
-        // text
-        fill(0);
-        text(id.text,
-            x + bubbleX + adjust, 
-            y - bubbleY
-        );
+        // REMOVE TEXT ONCE EXPIRE
+        if (millis() < id.time) {
+            // COLOR AND DIRECTION ADJUSTMENT
+            if(id != bubbles['me']){
+                fill( 255, 255, 0, 200);
+                adjust = -10;
+            } else {
+                fill(255);
+                bubbleX = -bubbleX;
+                adjust = 0;
+            }
 
-        // remove text once expire
-        if (millis() > id.expirationTime) {
-            delete id;
+            // BUBBLE
+            rect(
+                x - textWidth(id.text)/2 - bubbleMargin + bubbleX, 
+                y - bubbleY - 10,
+                textWidth(id.text) + 2 * bubbleMargin,
+                20, 
+                8
+            );
+            
+            // TEXT
+            fill(0);
+            text(id.text,
+                x + bubbleX + adjust, 
+                y - bubbleY
+            );            
         }
     }
 }
