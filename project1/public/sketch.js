@@ -198,6 +198,7 @@ function drawConnections(data) {
     noStroke();
 }
 
+// DRAWING ARROW
 function arrow(b, g, x, y){
     // CALCULATE ANGLE USING ARC TANGENT
     const angle = atan2(b, g);
@@ -210,7 +211,7 @@ function arrow(b, g, x, y){
         if (isItMe == false) {
             stroke(160, 220, 235);
             fill(160, 220, 235);
-            size = 15;
+            size = 20;
         } else {
             size = 25;
             stroke(102, 126, 23);
@@ -300,7 +301,7 @@ socket.on('otherTilt',function(data){
             b: data.b, 
             g: data.g
         };
-        console.log(otherTILT);
+        // console.log(otherTILT);
     }
 });
 
