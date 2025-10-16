@@ -36,7 +36,7 @@ let noBoost             = 1;
 - SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
 - NAMING TO KNOW WHO IS WHO
 - INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
-- MESSAGE FIXES (ENABLE)
+✅ MESSAGE FIXES (ENABLE)
 */
 
 io.on('connection', function(socket){
@@ -160,6 +160,13 @@ io.on('connection', function(socket){
         } else {
             io.emit('allTilt', noBoost);
         }
+
+        // console.log('otherTilt', {id: t.id, b:  t.b, g:  t.g});
+        io.emit('otherTilt', {
+            id: t.id,
+            b:  t.b,
+            g:  t.g
+        });
     });
 
     // LISTENING FOR A LEAVING CLIENT

@@ -19,7 +19,8 @@ let mySpeed         = 0.001;
 let boost           = 1;
 const othersPOS     = {};
 const allPOS        = {};
-const allTILT       = {};
+const otherTILT     = {};
+let isItMe          = false;
 
 // TOUCH VARIABLE
 let touchStartTime  = 0;   
@@ -32,10 +33,6 @@ const FADE_MS       = 800;
 // SHAPE
 let numberOfDevices = 0; 
 let shapeVertexes = []; 
-
-/* NOTES: 
-- ADDING DIRECTION ARROW AND SPEED UP FOR BOOST
-*/
 
 /*----------------------------------------------*/
 function setup() {
@@ -137,24 +134,28 @@ function draw() {
 
     // SENDING TO SERVER CLIENT'S MOVEMENT
     socket.emit('move', {id: myID, x:myX, y:myY});
-
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
     // DRAWING LINES CONNECTING
     drawConnections(shapeVertexes);
     drawConnections(Object.values(allPOS));
     
-    // DRWAWING OTHER CLIENTS
+    // DRAWING OTHER CLIENTS
+    isItMe = false;
     for (let id in othersPOS) {
         const position = othersPOS[id];
-        fill(160, 220, 235);
-        ellipse(position.x, position.y, 15);
+
+        // IF THERE IS DATA
+        const t = otherTILT[id];
+        if (t) {
+            arrow(t.b, t.g, position.x, position.y); 
+        }
         drawBubble(bubbles[id], position.x, position.y)
     }
 
     // DRAW THIS CLIENT
-    fill(102, 126, 23);
-    ellipse(myX, myY, 30);
+    isItMe = true;
+    arrow(beta, gamma, myX, myY);
     textAlign(CENTER, CENTER);
     fill(255);
     text('Me', myX, myY);  
@@ -196,8 +197,47 @@ function drawConnections(data) {
     }
     noStroke();
 }
+
+function arrow(b, g, x, y){
+    // CALCULATE ANGLE USING ARC TANGENT
+    const angle = atan2(b, g);
+    push();
+        translate(x, y);
+        rotate(angle);
+
+        // DIFFRENTIATE ME FROM OTHER
+        let size = 15;
+        if (isItMe == false) {
+            stroke(160, 220, 235);
+            fill(160, 220, 235);
+            size = 15;
+        } else {
+            size = 25;
+            stroke(102, 126, 23);
+            fill(102, 126, 23);
+        }
+
+        // IF BOOST CHANGE COLOR
+        if (boost > 1) {
+            stroke(255, 0,0);
+            strokeWeight(5);
+            line(0, 0, size + 5, 0);
+            line(size + 5, 0, size - size/10, -10);
+            line(size + 5, 0, size - size/10,  10);
+            fill(255, 0, 0);
+        } else {
+            strokeWeight(2);
+            line(0, 0, size, 0);
+            line(size, 0, 4/5 * size, -10);
+            line(size, 0, 4/5 * size,  10);
+        }
+
+        ellipse(0, 0, size + 5);
+    pop();
+}
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
+
 // LISTENING FOR MY CLIENT ID
 socket.on('connect', function(){ 
     myID = socket.id;
@@ -242,6 +282,7 @@ socket.on('allChat', function(data){
             text: data.text, 
             time: millis() + expirePeriod
         };
+        // console.log('ℹ️ chat:', bubbles);
         // console.log('ℹ️ chat:', bubbles[data.id]);
         // console.log('current time:', millis());
     }
@@ -253,12 +294,22 @@ socket.on('allTilt', function(data){
     // console.log('ℹ️ Other user tilt data', data);
 });
 
+socket.on('otherTilt',function(data){
+    if(data.id !== myID){
+        otherTILT[data.id] = { 
+            b: data.b, 
+            g: data.g
+        };
+        console.log(otherTILT);
+    }
+});
+
 // LISTENING FOR DISCONNECTED CLIENT
 socket.on('left', function(id){
     // REMOVE DATA ABOUT THEM
     delete othersPOS[id];
     delete allPOS[id];
-    delete allTILT[id];
+    delete otherTILT[id];
       // console.log('ℹ️ A user left');
 });
 /*----------------------------------------------*/
@@ -282,6 +333,7 @@ function sendChat() {
 
     // ADDING EXPIRATION TIME AND SAVING DATA
     const pack = {
+        id: myID,
         text: txt, 
         time: millis() + expirePeriod
     };
@@ -306,13 +358,14 @@ function drawBubble(id, x, y){
     let bubbleY = 30;
     let adjust = 0;
 
+    // PREVENT EMPTY
     if (id){
         // REMOVE TEXT ONCE EXPIRE
         if (millis() < id.time) {
             // COLOR AND DIRECTION ADJUSTMENT
             if(id != bubbles['me']){
                 fill( 255, 255, 0, 200);
-                adjust = -10;
+                adjust = -textWidth(id.text)/2;
             } else {
                 fill(255);
                 bubbleX = -bubbleX;
@@ -330,7 +383,8 @@ function drawBubble(id, x, y){
             
             // TEXT
             fill(0);
-            text(id.text,
+            text(
+                id.text,
                 x + bubbleX + adjust, 
                 y - bubbleY
             );            
@@ -339,15 +393,15 @@ function drawBubble(id, x, y){
 }
 
 /*----------------------------------------------*/
-// TOUCH EVENTS
+// TOUCH EVENTS (SCREENTOUCH SPEED)
 function touchStarted() {
-    // avoid orientation button with speed button
+    // AVOID ORIENTATION BUTTON
     const btn = document.querySelector('#requestOrientationButton');
     if (btn && btn.style.display !== 'none') {
         return true;
     }
 
-    // avoid text button with speed button
+    // AVOID TEXT SECTION
     const t = event.target;
     if (t === chatInput || t === chatSend || chatInput.contains(t)) {
         return true;
