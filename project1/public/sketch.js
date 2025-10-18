@@ -45,6 +45,18 @@ const FADE_MS       = 800;
 let numberOfDevices = 0; 
 let shapeVertexes = []; 
 
+// TEXT INFO
+let instructions = 
+`You are the Green Circle; others are Blue.
+1. Be the first to reach the top score in "My Points" (top-left).
+2. Every 15s, a shape appears. Move to a vertex to score. First to a vertex earns most points, next earns less.
+3. Chat to earn points: sender gets more, receiver gets less.`
+;
+
+let warning = 
+`WARNING: 2 Players leaned the same way! Speed up!`
+;
+
 /*----------------------------------------------*/
 function setup() {
     let canvas = createCanvas(windowWidth, windowHeight);
@@ -103,8 +115,8 @@ function draw() {
     // TABLE
     fill(255, 200);
     stroke(0);
-    rect(width-60,10, 55, 50, 6);
-    rect(5, 10, 90, 50, 6);
+    // rect(width-60,10, 55, 50, 6);
+    rect(5, 10, 90, 75, 6);
 
     // TEXT
     let currentTotal = Object.keys(allPOS).length;
@@ -114,15 +126,7 @@ function draw() {
         // SENDING number of devices and frame size
         socket.emit('count', {c: numberOfDevices, w: windowWidth, h: windowHeight});
         // console.log('ℹ️ Number of Devivce:', numberOfDevices);
-    }
-    
-    noStroke();
-    fill(0);
-    textAlign(LEFT);
-    textSize(10);
-    text("beta: "   + round(beta),      width - 52.5, 22);
-    text("gamma: "  + round(gamma),     width - 52.5, 35);
-    text("devices: "+ numberOfDevices,  width - 52.5, 48);  
+    }  
 
     // TURN NEGATIVE
     if (timeLeft > 0) {
@@ -131,9 +135,21 @@ function draw() {
 
     // MATCH COUNT & TIME
     let goal = numberOfDevices * 12 + 10; 
+
+    noStroke();
+    fill(0);
+    textAlign(LEFT);
+    textSize(10);
     text("My Points: " + myScore + "/" + goal,                10, 22);
     text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 35);    
     text("Leading Score: " + highestScore,                    10, 48);    
+    text("beta: "   + round(beta),                            10, 61);
+    text("gamma: "  + round(gamma),                           10, 74);
+    // text("devices: "+ numberOfDevices,                        10, 87);
+
+    // INSTRUCTIONS
+    fill(255);
+    text(instructions, 5 + 90 + 10, 0, 270, 95);
 
     // IF SCORE REACH GOAL TELL SERVER
     if (myScore > goal) {
@@ -162,11 +178,26 @@ function draw() {
         }
     }
 
+    if (boost > 1){
+        // PULSE FACTOR
+        let pulse = sin(millis() * 0.005);
+
+        // MAP PULSE FOR SIZE AND RED BRIGTNESS
+        let glow = map(pulse, -1, 1, 200, 255);
+        let size = map(pulse, -1, 1, 12, 16);
+
+        // DRAWING PULSING TXT
+        fill(glow, 0, 0);
+        textAlign(CENTER);
+        textSize(size);
+        text(warning, width/2, height - 90);
+    }
+
     // MOVEMENT EQUATION
     myX += gamma * mySpeed * boost;
     myY += beta  * mySpeed * boost;
     myX = constrain(myX, 25, width  - 25);
-    myY = constrain(myY, 25, height - 25);
+    myY = constrain(myY, 80, height - 80);    
 
     // SPEED UP WHEN TOUCHED
     if (touching) {
@@ -228,6 +259,7 @@ function draw() {
     drawName(myName, myX, myY, true);
     drawBubble(bubbles['me'], myX, myY);
 }
+
 
 function drawName(name, x, y, isMe) {
     push();

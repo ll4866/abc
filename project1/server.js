@@ -49,10 +49,6 @@ let shapeEndTime        = 0;
 // CONDITION
 let allNamed            = false; 
 
-/* USER TESTING: 
-- INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
-*/
-
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
@@ -238,7 +234,7 @@ io.on('connection', function(socket){
         rankingData[data.id] = data.score;
 
         // ONLY WHEN ALL IS COLLECTED SEND TO ALL
-        if (Object.keys(rankingData).length = lastCount){
+        if (Object.keys(rankingData).length === lastCount){
             io.emit('AllSCORES', rankingData);
             // console.log('Final scores:', allScores);
 
@@ -248,7 +244,6 @@ io.on('connection', function(socket){
 
             // RESET AFTERWARDS 
             setTimeout(resetServer, 20000);
-            console.log('resetGame');
         }
     })
 
@@ -265,23 +260,51 @@ io.on('connection', function(socket){
         delete tilts[socket.id];
         delete userNames[socket.id];
         delete userPos[socket.id];
+        delete rankingData[socket.id];
+
+        // RESET CLAIMED VERTICES FOR CLIENT THAT LEFT
+        for (let i = 0; i < claimedVertices.length; i++) {
+            if (claimedVertices[i] === socket.id) {
+                claimedVertices[i] = null;
+            }
+        }
+        
+        // REMOVE THE DICONNECTED CLIENT FROM MATCH ORDER
+        let newVertexMatchOrder = [];
+        for (let i = 0; i < vertexMatchOrder.length; i++) {
+            if (vertexMatchOrder[i] !== socket.id) {
+                newVertexMatchOrder.push(vertexMatchOrder[i]);
+            }
+        }
+        vertexMatchOrder = newVertexMatchOrder;
 
         // UPDATE SHAPE
-        startShapeTimer();
-        rebuildShape(lastCount);
-
-        // RESET CONDITION
-        allNamed = false;
+        if (connectedUSERS.length > 0) {
+            rebuildShape(lastCount);
+            startShapeTimer();
+        }
     });
 
 });
 
 function resetServer() {
-    allScores      = {};
+    // CLEAR GAME STATE
+    allScores        = {};
+    rankingData      = {};
     vertexMatchOrder = [];
-    claimedVertices = [];
+    claimedVertices  = [];
+
+    // CLEAR DATA OF CLIENTS
+    tilts    = {};
+    userPos  = {};
+
+    // RESET SCORING
+    lastHighestScore = 0;
+
+    // NEW SHAPE
     rebuildShape(lastCount);
     startShapeTimer();
+    // console.log('resetGame');
 }
 
 function rebuildShape(count) {
@@ -298,12 +321,17 @@ function rebuildShape(count) {
         claimedVertices.push(null);
     }
 
+    // DEFINE PLAYABLE AREA BASED ON CLIENT CONSTRAINTS
+    const minX = 25;
+    const maxX = minW - 25;
+    const minY = 80;
+    const maxY = minH - 80;
+
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
-        shapeVertexes.push({ 
-            x: Math.random() * minW, 
-            y: Math.random() * minH 
-        });
+        const x = Math.random() * (maxX - minX) + minX;
+        const y = Math.random() * (maxY - minY) + minY;
+        shapeVertexes.push({ x, y });
     }
 
     // SEND SHAPE TO ALL USERS
