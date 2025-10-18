@@ -21,6 +21,8 @@ const { Server } =  require('socket.io'); // include library
 const { IncomingMessage } = require('http');
 const io = new Server(HTTPSserver);
 
+// STORED VALUES
+let connectedUSERS      = [];
 let shapeVertexes       = [];
 let tilts               = {};
 let userNames           = {};
@@ -28,22 +30,35 @@ let userPos             = {};
 let lastCount           = 0;
 let minW                = Infinity;
 let minH                = Infinity;  
+let vertexMatchOrder    = [];
+let claimedVertices     = [];
+
+// ADJUST VARIABLES
 const maxTilt           = 30;
+const HIT_DIST          = 30;
 const boost             = 3;
 const noBoost           = 1;
-const HIT_DIST          = 30;
+
+// TIMER FOR SHAPE
+const SHAPE_TIME_LIMIT  = 15;
+let shapeTimer          = null;
+let shapeEndTime        = 0;
+
+// CONDITION
+let allNamed            = false; 
 
 /* USER TESTING: 
-✅ REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
-✅ LOOS LIKE CONSTELLATION COULD CONNECT AND FURTHER (SET PATTERN)
-✅ SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
-✅ NAMING TO KNOW WHO IS WHO
 - INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
-✅ MESSAGE FIXES (ENABLE)
+- HUGE TIMER
 */
 
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
+
+    if (!connectedUSERS.includes(socket.id)) {
+        connectedUSERS.push(socket.id);
+        // console.log('Connected users:', connectedUSERS);
+    }
 
     // LISTENING FOR THE NAME CLIENT HAS GIVEN
     // STORE AND SEND TO ALL
@@ -57,6 +72,20 @@ io.on('connection', function(socket){
         // SENDING TO ALL CLIENTS LIST OF NAMES
         io.emit('userList', userNames);
         // console.log('User named:', name);
+
+        // ALL SOCKET CONNECTED
+        const allNamed = connectedUSERS.every(id =>
+            userNames[id] && userNames[id] !== id && userNames[id] !== 'undefined'
+        );
+
+        // BEGINING OF THE GAME
+        // START ONCE EVERY PLAYER HAS BEEN NAMED
+        if (allNamed && !shapeTimer) {
+            startShapeTimer();
+            // console.log('ALL DEVICES NAMED ✅');
+        } else {
+            // console.log('MISSING SOME DEVICES ❌');
+        }
     });
 
     // LISTENING FOR NUMBER OF DEVICES
@@ -70,12 +99,18 @@ io.on('connection', function(socket){
                 // RECORDING SMALLEST CANVAS
                 minW = data.w;
                 minH = data.h;
-                // console.log('size', minW, minH);
-
+                
+                // GIVEN FRAME IS INCORRECT
+                // RESHAPE
                 rebuildShape(data.c);
-            }
+                startShapeTimer();
 
+                // console.log('size', minW, minH);
+            }
+            // GIVEN COUNT IS INCORRECT
+            // RESHAPE
             rebuildShape(data.c);
+            startShapeTimer();
             // console.log(data.c);
         }
     });
@@ -88,10 +123,11 @@ io.on('connection', function(socket){
 
         // SEND TO ALL THIS NEW POSITION
         io.emit('update', posData);
-        // console.log('Locator:', position);
-
+        
         // CHECKING IF USER VERTEX MATCHES SHAPE VERTEX
-        checkConstellation(); 
+        checkConstellation();    
+        
+        // console.log('Locator:', position);
     });
 
     // LISTENING FOR CHAT FROM OTHERS CLIENTs
@@ -183,13 +219,19 @@ io.on('connection', function(socket){
         io.emit('left', socket.id);
 
         // REMOVE DATA OF THE CLIENT THAT LEFT
+        connectedUSERS = connectedUSERS.filter(id => id !== socket.id);
         delete tilts[socket.id];
         delete userNames[socket.id];
         delete userPos[socket.id];
 
         // UPDATE SHAPE
-        rebuildShape(Object.keys(userPos).length);
+        startShapeTimer();
+        rebuildShape(lastCount);
+
+        // RESET CONDITION
+        allNamed = false;
     });
+
 });
 
 function rebuildShape(count) {
@@ -199,6 +241,13 @@ function rebuildShape(count) {
     // RESET
     shapeVertexes.length = 0;
 
+    // RESET MATCH TRACKING 
+    vertexMatchOrder = [];
+    claimedVertices = [];
+    for (let i = 0; i < count; i++) {
+        claimedVertices.push(null);
+    }
+    
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
         shapeVertexes.push({ 
@@ -217,6 +266,38 @@ function rebuildShape(count) {
 function checkConstellation() {
     const users = Object.values(userPos);
     const userArr = users;  
+
+    // TRACK WHICH USERS HAVE CLAIMED WHICH VERTICES
+    vertexMatchOrder = vertexMatchOrder || [];
+    claimedVertices = claimedVertices || new Array(shapeVertexes.length).fill(null);
+    
+    // LOOP THROUGH EACH ACTIVE USER AND THEIR POSITION
+    for (const [id, pos] of Object.entries(userPos)) {
+
+        // SKIP USERS WHO HAVE ALREADY CLAIMED A VERTEX
+        if (vertexMatchOrder.includes(id)) continue;
+
+        // ELSE, CHECK IF THIS USER MATCHES ANY UNCLAIMED VERTEX
+        for (let i = 0; i < shapeVertexes.length; i++) {
+            // ONLY CHECK VERTICES THAT HAVEN’T BEEN CLAIMED YET
+            if (!claimedVertices[i]) {
+
+                // IF USER’S POSITION IS WITHIN THE HIT DISTANCE OF A VERTEX
+                const v = shapeVertexes[i];                
+                if (Math.hypot(v.x - pos.x, v.y - pos.y) <= HIT_DIST) {
+                    
+                    // ADD THIS USER TO THE CLAIM ORDER LIST
+                    vertexMatchOrder.push(id);
+                    
+                    // MARK THIS VERTEX AS CLAIMED BY THE USER
+                    claimedVertices[i] = id;
+                    
+                    // console.log(`Vertex ${i} claimed by ${id}`);
+                    break;
+                }
+            }
+        }
+    }
 
     // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
     // (any consecutive sequence of users with positions
@@ -259,15 +340,40 @@ function checkConstellation() {
 
     // IF ALL CONDITIONS IS MET
     if (orderedOk) {
-        // INFORM ALL USERS OF THIS SUCCESS
-        io.emit('shapeSuccess'); 
-
-        rebuildShape(Object.keys(userPos).length);
+        // SEND ORDER OF MATCH TO ALL
+        io.emit('shapeSuccess', {
+            order: vertexMatchOrder,
+            count: lastCount
+        });
+        
+        // RESET TIMER
+        if (shapeTimer) clearTimeout(shapeTimer);
+        shapeTimer = null;
+        
+        // NEW SHAPE
+        rebuildShape(lastCount);
+        startShapeTimer();
         // console.log('success');
     } else {
         // console.log('no success');
     }
-    
+}
+
+function startShapeTimer() {
+    // CLEAR PREVIOUS TIME
+    if (shapeTimer) clearTimeout(shapeTimer);
+
+    // SET NEW END TIME
+    shapeEndTime = Date.now() + SHAPE_TIME_LIMIT * 1000;
+
+    // SEND TIMER TO CALL CLIENTS
+    io.emit('shapeTimer', { timeLeft: SHAPE_TIME_LIMIT });
+
+    // START COUNTDOWN
+    shapeTimer = setTimeout(() => {
+        rebuildShape(lastCount);
+        startShapeTimer()
+    }, SHAPE_TIME_LIMIT * 1000);
 }
 
 HTTPSserver.listen(portHTTPS, function (req, res) {

@@ -23,7 +23,7 @@ const othersPOS     = {};
 const allPOS        = {};
 const otherTILT     = {};
 const userNames     = {}; 
-let mySuccessCount  = 0;
+let myScore         = 0;
 let timeLeft        = 0;
 
 // TOUCH VARIABLE
@@ -106,7 +106,7 @@ function draw() {
     fill(255);
     textAlign(LEFT, TOP);
     textSize(14);
-    text("Your Matches: " + mySuccessCount, 10, 10);
+    text("My Points: " + myScore, 10, 10);
     text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 30);
     /*----------------------------------------------*/
     /* --- MOVEMENT --- */
@@ -380,6 +380,9 @@ socket.on('allChat', function(data){
         // console.log('ℹ️ chat:', bubbles);
         // console.log('ℹ️ chat:', bubbles[data.id]);
         // console.log('current time:', millis());
+
+        // ADD 1 POINT PER CHAT MESSAGE RECEIVED
+        myScore += 0.5;
     }
 });
 
@@ -410,14 +413,16 @@ socket.on('left', function(id){
 });
 
 // LISTENING FOR HOW MANY SUCCESS MATCH
-socket.on('shapeSuccess', function(){
-    mySuccessCount++;
-    // console.log('Total matches:', mySuccessCount);
+socket.on('shapeSuccess', function(data){
+    const { order, count } = data;
+    const score = 4 * count - 3 * order.indexOf(myID);
+    myScore += score;
+    // console.log('Your score:', myScore);
 });
 
 // LISTENING FOR TIME LEFT UNTIL NEW SHAPE
 socket.on('shapeTimer', function(data){
-    timeLeft = data.timeLeft;
+    timeLeft = data.timeLeft* 1000;
 });
 
 
@@ -452,6 +457,9 @@ function sendChat() {
 
     // SENDING MY MESSAGE TO SERVER
     socket.emit('chat', pack);
+
+    // ADD POINTS PER CHAT MESSAGE
+    myScore += 2;
 
     // CLEAR CHATBOX
     chatInput.value = '';
