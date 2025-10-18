@@ -23,6 +23,8 @@ const othersPOS     = {};
 const allPOS        = {};
 const otherTILT     = {};
 const userNames     = {}; 
+let mySuccessCount  = 0;
+let timeLeft        = 0;
 
 // TOUCH VARIABLE
 let touchStartTime  = 0;   
@@ -95,6 +97,17 @@ function draw() {
     text("gamma: "  + round(gamma),     width - 80, 35);
     text("devices: "+ numberOfDevices,  width - 80, 48);   
 
+    // TURN NEGATIVE
+    if (timeLeft > 0) {
+        timeLeft -= deltaTime;
+    }
+
+    // MATCH COUNT & TIME
+    fill(255);
+    textAlign(LEFT, TOP);
+    textSize(14);
+    text("Your Matches: " + mySuccessCount, 10, 10);
+    text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 30);
     /*----------------------------------------------*/
     /* --- MOVEMENT --- */
     // DEFAULT TILT
@@ -395,6 +408,18 @@ socket.on('left', function(id){
     delete userNames[id];
     // console.log('ℹ️ A user left');
 });
+
+// LISTENING FOR HOW MANY SUCCESS MATCH
+socket.on('shapeSuccess', function(){
+    mySuccessCount++;
+    // console.log('Total matches:', mySuccessCount);
+});
+
+// LISTENING FOR TIME LEFT UNTIL NEW SHAPE
+socket.on('shapeTimer', function(data){
+    timeLeft = data.timeLeft;
+});
+
 
 /*----------------------------------------------*/
 // CHAT CONTROLS

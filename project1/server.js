@@ -25,7 +25,6 @@ let shapeVertexes       = [];
 let tilts               = {};
 let userNames           = {};
 let userPos             = {};
-let vertexState         = [];
 let lastCount           = 0;
 let minW                = Infinity;
 let minH                = Infinity;  
@@ -37,7 +36,7 @@ const HIT_DIST          = 30;
 /* USER TESTING: 
 ✅ REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
 ✅ LOOS LIKE CONSTELLATION COULD CONNECT AND FURTHER (SET PATTERN)
-- SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
+✅ SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
 ✅ NAMING TO KNOW WHO IS WHO
 - INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
 ✅ MESSAGE FIXES (ENABLE)
@@ -199,7 +198,6 @@ function rebuildShape(count) {
 
     // RESET
     shapeVertexes.length = 0;
-    vertexState.length = 0;
 
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
@@ -207,11 +205,12 @@ function rebuildShape(count) {
             x: Math.random() * minW, 
             y: Math.random() * minH 
         });
-        vertexState.push(false);
     }
 
     // SEND SHAPE TO ALL USERS
     io.emit('shape', shapeVertexes);
+
+    // CHECK IF MATCH
     checkConstellation();
 }
 
@@ -219,55 +218,56 @@ function checkConstellation() {
     const users = Object.values(userPos);
     const userArr = users;  
 
-    // RESET
-    vertexState.fill(false);
-  
-    // CHECK IF A USER SUCCESFULLY 
-    // APPROACHES A VERTEX (any user, any vertex)
-    for (let i = 0; i < shapeVertexes.length; i++) {
-      const v = shapeVertexes[i];
-      for (const u of users) {
-        // TRIANGLE HYPOTENUSE DISTANCE IS BELOW EXPECTED
-        if (Math.hypot(v.x - u.x, v.y - u.y) <= HIT_DIST) {
-            // THAT VERTEX IS TRUE
-            vertexState[i] = true;
-
-            // PREVENT FROM TESTING THE SAME VERTEX
-            break;
-            // console.log(vertexState);
-        }
-      }
-    }
-
-    // CHECK IF ALL VERTEX MEET CONDITION
-    if (vertexState.includes(false)) return;
-    // console.log('all vertex matches');
-
-    // CHECK IF ORDER IS CORRECT
-    // (any consecutive block of count users)
+    // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
+    // (any consecutive sequence of users with positions
+    // that match the sequence of shape vertexes)
     let orderedOk = false;
     const count = shapeVertexes.length;
-    // TRY EVERY POSSIBLE COMBINATION
-    for (let start = 0; start <= userArr.length - count; start++) {
-        // FOR EVERY VERTEX CHECK
-        const match = shapeVertexes.every((v, i) => {
-            // CONSECUTIVE USER
-            const u = userArr[start + i];
-            // IF THE PATTERN MATCH
-            return Math.hypot(v.x - u.x, v.y - u.y) <= HIT_DIST;
-        });
 
-        // IF IT MATCHES SAY IT IS TURE
-        if (match) { 
-            orderedOk = true; 
-            break; 
+    // SLIDE A WINDOW OF *count* CONSECUTIVE USERS
+    // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
+    // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
+    for (let start = 0; start <= userArr.length - count; start++) {
+        // COPY CURRENT GROUP
+        const block = userArr.slice(start, start + count);
+
+        // GENERATE ALL CYCIC RATIONS OF "shapeVertexes"
+        for (let shift = 0; shift < count; shift++) {
+            // CREATES 1 ROATION
+            const rotated = [];
+            for (let j = 0; j < count; j++) {
+                // SHIFT 1 TO THE RIGHT, BUT ADAPT TO COUNT
+                // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
+                rotated.push(shapeVertexes[(j + shift) % count]);
+            }
+
+            // CHECK IF IT MATCHES USER POSITION
+            // DISTANCE FORMULA
+            const match = rotated.every((v, j) =>
+                Math.hypot(v.x - block[j].x, v.y - block[j].y) <= HIT_DIST
+            );
+
+            // IF MATCH, TRUE AND BREAK OUT OF LOOP
+            if (match) {
+                orderedOk = true;
+                break;
+            }
         }
+        // IF THERES IS A MATCH BREAK OUT 
+        if (orderedOk) break;
     }
 
     // IF ALL CONDITIONS IS MET
-    if (vertexState.every(Boolean) && orderedOk) {
-        console.log('success');
+    if (orderedOk) {
+        // INFORM ALL USERS OF THIS SUCCESS
+        io.emit('shapeSuccess'); 
+
+        rebuildShape(Object.keys(userPos).length);
+        // console.log('success');
+    } else {
+        // console.log('no success');
     }
+    
 }
 
 HTTPSserver.listen(portHTTPS, function (req, res) {
