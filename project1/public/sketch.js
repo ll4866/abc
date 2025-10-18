@@ -6,13 +6,15 @@ const socket = io({ path: prefix + '/socket.io' });
 const chatInput = document.querySelector('#chatInput');
 const chatSend  = document.querySelector('#chatSend');
 const bubbles   = {};
-const expirePeriod = 1000;
+const expirePeriod = 5000;
 
 // DEVICE ORIENTATION VARIABLES
 let alpha, beta, gamma = 0;
 let lastB, lastG = 0;
 
 // USERS VARIABLES
+let isItMe          = false;
+let myName          = '';
 let myID; 
 let myX, myY;
 let mySpeed         = 0.001;
@@ -20,7 +22,7 @@ let boost           = 1;
 const othersPOS     = {};
 const allPOS        = {};
 const otherTILT     = {};
-let isItMe          = false;
+const userNames     = {}; 
 
 // TOUCH VARIABLE
 let touchStartTime  = 0;   
@@ -88,6 +90,7 @@ function draw() {
     noStroke();
     fill(0);
     textAlign(LEFT);
+    textSize(10);
     text("beta: "   + round(beta),      width - 80, 22);
     text("gamma: "  + round(gamma),     width - 80, 35);
     text("devices: "+ numberOfDevices,  width - 80, 48);   
@@ -145,21 +148,70 @@ function draw() {
     for (let id in othersPOS) {
         const position = othersPOS[id];
 
-        // IF THERE IS DATA
-        const t = otherTILT[id];
-        if (t) {
-            arrow(t.b, t.g, position.x, position.y); 
+        // GETTING TILT DATA 
+        // IF NO DATA = 0
+        let t;
+        if (otherTILT[id] !== undefined) {
+            t = otherTILT[id];
+        } else {
+            t = { b: 0, g: 0 };
         }
-        drawBubble(bubbles[id], position.x, position.y)
+
+        // GETTING NAME INFO 
+        // IF NO INFO USE ID
+        let name;
+        if (userNames[id]) {
+            name = userNames[id];
+        } else {
+            name = id;
+        }
+
+        // DRAW OTHER CLIENTS
+        isItMe = false;
+        arrow(t.b, t.g, position.x, position.y); 
+        drawName(userNames[id], position.x, position.y, false);
+        drawBubble(bubbles[id], position.x, position.y);
     }
 
     // DRAW THIS CLIENT
     isItMe = true;
     arrow(beta, gamma, myX, myY);
-    textAlign(CENTER, CENTER);
-    fill(255);
-    text('Me', myX, myY);  
+    drawName(myName, myX, myY, true);
     drawBubble(bubbles['me'], myX, myY);
+}
+
+function drawName(name, x, y, isMe) {
+    push();
+        textAlign(CENTER, CENTER);
+
+        let w = textWidth(name);
+        let h = textAscent();
+        let pad = 5;
+
+        // DIFFERENTIATE OTHER AND USER COLOR
+        if (isMe) {
+            fill(102, 126, 23, 80); 
+        } else {
+            fill(160, 220, 235, 80); 
+        }
+
+        // RECTANGLE BUBBLE
+        rect(
+            x - w / 2 - pad, 
+            y - 25 - h / 2 - pad,
+            w + 2 * pad, 
+            h + 2 * pad,
+            8
+        );
+
+        // DIFFERENTIATE OTHER AND USER COLOR 
+        if (isMe) {
+            fill(180);
+        } else {
+            fill(0); 
+        }
+        text(name, x, y - 25);
+    pop();
 }
 
 // DRAWING SHAPE
@@ -169,13 +221,12 @@ function drawConnections(data) {
 
     // COLOR CHANGE BASED ON GOAL VS CLIENTs
     if(data === shapeVertexes){
-        stroke(255, 0, 0);
+        stroke(255);
     } else {
         stroke(160, 220, 235);
     }
     strokeWeight(1.5);
     noFill();
-
 
     // DRAWING LINE CONNECTING 
     let prev = data[0];
@@ -190,8 +241,8 @@ function drawConnections(data) {
     // DRAWING VERTEXES
     if(data === shapeVertexes){
         for (const p of data) {
-            for (let i = 1; i < 4; i++){
-                circle(p.x, p.y, 6 * i);
+            for (let i = 1; i < 3; i++){
+                drawStar(p.x, p.y, 3 * i, 6 * i, 5);
             }
         }
     }
@@ -209,11 +260,11 @@ function arrow(b, g, x, y){
         // DIFFRENTIATE ME FROM OTHER
         let size = 15;
         if (isItMe == false) {
+            size = 10;
             stroke(160, 220, 235);
             fill(160, 220, 235);
-            size = 20;
         } else {
-            size = 25;
+            size = 15;
             stroke(102, 126, 23);
             fill(102, 126, 23);
         }
@@ -228,22 +279,52 @@ function arrow(b, g, x, y){
             fill(255, 0, 0);
         } else {
             strokeWeight(2);
-            line(0, 0, size, 0);
-            line(size, 0, 4/5 * size, -10);
-            line(size, 0, 4/5 * size,  10);
+            line(0, 0, size + 2.5, 0);
+            line(size + 2.5, 0, 4/5 * size, -8);
+            line(size + 2.5, 0, 4/5 * size,  8);
         }
 
         ellipse(0, 0, size + 5);
     pop();
 }
+
+// DRAWING STARS
+function drawStar(x, y, rInner, rOuter, nPoints) {
+    // CALCULATE ANGLE FOR EACH VERTEX
+    let angle = TWO_PI / (nPoints * 2);
+    beginShape();
+        // EACH VERTEX ANGLE
+        for (let i = 0; i < TWO_PI; i += angle) {
+            // IF IT IS AN OUTER VERTEX OR INNNER 
+            // CHANGE RADIUS
+            let r;
+            if (i / angle % 2 === 0) {
+                r = rOuter;
+            } else {
+                r = rInner;
+            }
+
+            // DRAW VERTEX
+            vertex(
+                x + cos(i - PI / 2) * r, 
+                y + sin(i - PI / 2) * r
+            );
+        }
+    endShape(CLOSE);
+}
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
+
+socket.on('userList', list => {
+    Object.assign(userNames, list);
+    // console.log('ℹ️ ID names:', userNames);
+});
 
 // LISTENING FOR MY CLIENT ID
 socket.on('connect', function(){ 
     myID = socket.id;
     needsShape = true;
-    // console.log('ℹ️ My socket id:', myId);
+    // console.log('ℹ️ My socket id:', myID);
 });
 
 // LISTENING FOR GOAL SHAPE
@@ -311,8 +392,10 @@ socket.on('left', function(id){
     delete othersPOS[id];
     delete allPOS[id];
     delete otherTILT[id];
-      // console.log('ℹ️ A user left');
+    delete userNames[id];
+    // console.log('ℹ️ A user left');
 });
+
 /*----------------------------------------------*/
 // CHAT CONTROLS
 chatSend.addEventListener('click', function() {
@@ -355,9 +438,8 @@ function sendChat() {
 function drawBubble(id, x, y){
     // BUBBLE TEXTBOX
     let bubbleMargin = 4;
-    let bubbleX = 20;
-    let bubbleY = 30;
-    let adjust = 0;
+    let bubbleY = - 25;
+    textAlign(CENTER,CENTER);
 
     // PREVENT EMPTY
     if (id){
@@ -365,17 +447,14 @@ function drawBubble(id, x, y){
         if (millis() < id.time) {
             // COLOR AND DIRECTION ADJUSTMENT
             if(id != bubbles['me']){
-                fill( 255, 255, 0, 200);
-                adjust = -textWidth(id.text)/2;
-            } else {
                 fill(255);
-                bubbleX = -bubbleX;
-                adjust = 0;
+            } else {
+                fill( 255, 255, 0, 200);
             }
 
             // BUBBLE
             rect(
-                x - textWidth(id.text)/2 - bubbleMargin + bubbleX, 
+                x - textWidth(id.text)/2 - bubbleMargin, 
                 y - bubbleY - 10,
                 textWidth(id.text) + 2 * bubbleMargin,
                 20, 
@@ -384,13 +463,46 @@ function drawBubble(id, x, y){
             
             // TEXT
             fill(0);
-            text(
-                id.text,
-                x + bubbleX + adjust, 
-                y - bubbleY
-            );            
+            text( id.text, x, y - bubbleY);            
         }
     }
+}
+
+/*----------------------------------------------*/
+// NAME HANDLING
+const nameOverlay = document.getElementById('nameOverlay');
+const nameInput = document.getElementById('nameInput');
+const nameSubmit = document.getElementById('nameSubmit');
+
+// NAME SUBMIT WAYS
+nameSubmit.addEventListener('click', function() {
+    sendName()
+});
+
+nameSubmit.addEventListener('keyup', function(e){ 
+    if (e.key === 'Enter') {
+        sendName(); 
+    }
+});
+
+// HOW TO SEND
+function sendName() {
+    const name = nameInput.value.trim();
+
+    // IGNORE EMPTY
+    if (!name) return;
+
+    // SAVE NAME
+    myName = name; 
+    
+    // SENDING MY NAME TO SERVER WHEN CONNECTED
+    socket.emit('setName', myName);
+
+    // ERASE DISPLAY ONCE DONE
+    nameOverlay.style.display = 'none';
+
+    // SHOW REQUEST AFTER NAMED
+    document.getElementById('requestOrientationButton').style.display = 'block';
 }
 
 /*----------------------------------------------*/

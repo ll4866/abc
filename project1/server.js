@@ -22,25 +22,41 @@ const { IncomingMessage } = require('http');
 const io = new Server(HTTPSserver);
 
 let shapeVertexes       = [];
+let tilts               = [];
+let userNames           = {};
+let userPos             = {};
 let lastCount           = 0;
 let minW                = Infinity;
 let minH                = Infinity;  
-let tilts               = [];
-let maxTilt             = 30;
-let boost               = 5;
-let noBoost             = 1;
+const maxTilt           = 30;
+const boost             = 5;
+const noBoost           = 1;
+const HIT_DIST          = 30;
 
 /* USER TESTING: 
 ✅ REMOVING TRANSLATION (DISTRACTING) maybe as a next LEVEL
 - LOOS LIKE CONSTELLATION COULD CONNECT AND FURTHER (SET PATTERN)
 - SCORING / TIMING SYSTEM TO MATCH GOAL SHAPE
-- NAMING TO KNOW WHO IS WHO
+✅ NAMING TO KNOW WHO IS WHO
 - INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
 ✅ MESSAGE FIXES (ENABLE)
 */
 
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
+
+    // LISTENING FOR THE NAME SUBMITED
+    socket.on('setName', (name) => {
+        // PREVENT UNDEFINED, EMPTY, ETC
+        if (!name || !name.trim()) return;
+
+        // SAVE NAMES INTO LIST
+        userNames[socket.id] = name;
+
+        // SENDING TO ALL CLIENTS LIST OF NAMES
+        io.emit('userList', userNames);
+        // console.log('User named:', name);
+    });
 
     // LISTENING FOR NUMBER OF DEVICES
     // IF NUMBER CHANGED, MAKE A NEW SHAPE
@@ -78,8 +94,22 @@ io.on('connection', function(socket){
     // LISTENING FOR POSITION FROM OTHERS
     // SENDING TO ALL CLEINTS THIS INFO
     socket.on('move', function(posData){
-        // console.log('Locator:', position);
+        // STORE THE POSITON OF USERS
+        userPos[posData.id] = { x: posData.x, y: posData.y }
+
+        // CHECKING IF USER VERTEX MATCHES SHAPE VERTEX
+        for (const v of shapeVertexes) {
+            const dx = v.x - posData.x;
+            const dy = v.y - posData.y;
+            if (Math.hypot(dx, dy) <= HIT_DIST) {
+            console.log('success', posData.id, userNames[posData.id] || 'anon');
+            break;               // log only once per move
+            }
+        }
+
+        // SEND TO ALL THIS NEW POSITION
         io.emit('update', posData);
+        // console.log('Locator:', position);
     });
 
     // LISTENING FOR CHAT FROM OTHERS CLIENTs
@@ -174,13 +204,16 @@ io.on('connection', function(socket){
     // ERASE THAT CLIENT FROM DATA
     socket.on('disconnect', function() {
         console.log('someone disconnected', socket.id);
+        // SENDING TO ALL USERS THE CLIENT THAT LEFT
         io.emit('left', socket.id);
 
-        // REMOVE TILT CLIENT
+        // REMOVE NAME FROM DATA
         const idx = tilts.findIndex(e => e.id === socket.id);
         if (idx !== -1) {
             tilts.splice(idx, 1); 
         }
+        delete userNames[socket.id];
+        delete userPos[socket.id];
     });
 });
 
