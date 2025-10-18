@@ -23,8 +23,15 @@ const othersPOS     = {};
 const allPOS        = {};
 const otherTILT     = {};
 const userNames     = {}; 
-let myScore         = 0;
+
+// GAME FUNCTION
 let timeLeft        = 0;
+let myScore         = 0;
+let gameON          = true;
+let rankingData     = null;
+let freezeEnd       = 0;
+let lastSentScore   = 0;
+let highestScore    = 0;
 
 // TOUCH VARIABLE
 let touchStartTime  = 0;   
@@ -50,6 +57,25 @@ function setup() {
 }
 
 function draw() {
+    /* ===  FREEZE HANDLING  === */
+    // STOP GAME
+    if (!gameON) {
+        // SHOW RANKING
+        drawRankingBoard();
+
+        // 15 SEC SHOWCASE
+        if (millis() > freezeEnd) {
+            // HIDE RANKING
+            showRankingOverlay(false);
+            
+            // RESET EVERYTING ONCE TIME IS OUT
+            gameON   = true;
+            myScore  = 0;
+            rankingData = null;
+        }
+        return;
+    }
+  /* ============================= */
     background(10, 15, 30); 
 
     // GRADIENT BACKGROUND
@@ -77,7 +103,8 @@ function draw() {
     // TABLE
     fill(255, 200);
     stroke(0);
-    rect(width-85,10, 70, 50, 6);
+    rect(width-60,10, 55, 50, 6);
+    rect(5, 10, 90, 50, 6);
 
     // TEXT
     let currentTotal = Object.keys(allPOS).length;
@@ -93,9 +120,9 @@ function draw() {
     fill(0);
     textAlign(LEFT);
     textSize(10);
-    text("beta: "   + round(beta),      width - 80, 22);
-    text("gamma: "  + round(gamma),     width - 80, 35);
-    text("devices: "+ numberOfDevices,  width - 80, 48);   
+    text("beta: "   + round(beta),      width - 52.5, 22);
+    text("gamma: "  + round(gamma),     width - 52.5, 35);
+    text("devices: "+ numberOfDevices,  width - 52.5, 48);  
 
     // TURN NEGATIVE
     if (timeLeft > 0) {
@@ -103,11 +130,19 @@ function draw() {
     }
 
     // MATCH COUNT & TIME
-    fill(255);
-    textAlign(LEFT, TOP);
-    textSize(14);
-    text("My Points: " + myScore, 10, 10);
-    text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 30);
+    let goal = numberOfDevices * 12 + 10; 
+    text("My Points: " + myScore + "/" + goal,                10, 22);
+    text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 35);    
+    text("Leading Score: " + highestScore,                    10, 48);    
+
+    // IF SCORE REACH GOAL TELL SERVER
+    if (myScore > goal) {
+        // SENDING TO SERVER CLIENT PASS GOAL
+        socket.emit('goalMET');
+        // console.log('goalMET');
+    } else {
+        sendScoreIfChanged();
+    }
     /*----------------------------------------------*/
     /* --- MOVEMENT --- */
     // DEFAULT TILT
@@ -126,7 +161,7 @@ function draw() {
             }
         }
     }
-    
+
     // MOVEMENT EQUATION
     myX += gamma * mySpeed * boost;
     myY += beta  * mySpeed * boost;
@@ -150,6 +185,7 @@ function draw() {
 
     // SENDING TO SERVER CLIENT'S MOVEMENT
     socket.emit('move', {id: myID, x:myX, y:myY});
+    
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
     // DRAWING LINES CONNECTING
@@ -325,9 +361,58 @@ function drawStar(x, y, rInner, rOuter, nPoints) {
         }
     endShape(CLOSE);
 }
+
+// CHECK IF SCORE CHANGED
+function sendScoreIfChanged() {
+    if (myScore !== lastSentScore) {
+        // SENDING TO SERVER
+        socket.emit('highScore', myScore );
+
+        // UPDATE NEW SCORE
+        lastSentScore = myScore;
+        console.log('Score sent to server:', myScore);
+    }
+}
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
 
+// LISTENING FOR HIGHEST SCORE FOR NOW
+socket.on('highestScore', function(score){
+    highestScore = score ;
+    console.log("Received highScore:", score);
+})
+
+// LISTENING IF ANYONE HAS WON
+socket.on('requestSCORES', function(){
+    // IF SO SEND INDIVIDUAL SCORES TO SERVER
+    socket.emit('individualScores', {
+        id: myID,
+        score: myScore
+    });
+    // console.log('Sending my scores');
+})
+
+// LISTENING FOR THE SCORES OF OTHERS
+socket.on('AllSCORES', function(data){
+    // STORING THE SCORES
+    rankingData = data;
+    // console.log('received all score: ', data);
+})
+
+// LISTENING WHEN TO STOP GAME AND SCORE
+socket.on('freezeGame', (ms) => {
+    // FREEZE THE GAME
+    gameON = false;
+    // console.log('gameON:', gameON);
+
+    // COUNTDOWN
+    freezeEnd = millis() + ms;
+
+    // SHOWCASE RANKING
+    showRankingOverlay(true);
+  });
+
+// LISTENING FOR THE NAMES THE USERS HAVE GIVEN
 socket.on('userList', list => {
     Object.assign(userNames, list);
     // console.log('ℹ️ ID names:', userNames);
@@ -536,6 +621,84 @@ function sendName() {
 
     // SHOW REQUEST AFTER NAMED
     document.getElementById('requestOrientationButton').style.display = 'block';
+}
+
+/*----------------------------------------------*/
+// RANKING
+
+function showRankingOverlay(show) {
+    const board = document.getElementById('rankBoard');
+
+    // IF 'show' then DISPLAY BOARD ELSE DOES NOT
+    if (show) {
+        board.style.display = 'block';
+    } else {
+        board.style.display = 'none';
+    }
+}
+  
+function drawRankingBoard() {
+    const list   = document.getElementById('rankList');
+    const countDownSpan = document.getElementById('countDown');
+
+    // SKIP IF EITHER ELEMENTS DOES NOT EXIST
+    if (!list || !countDownSpan) {
+        return;
+    }
+
+    // CHECK IF BOTH `freezeEnd` AND `millis` EXIST
+    let left = 0;
+    if (freezeEnd && millis) {
+        // TIME LEFT CALCULATE
+        const timeLeftMs = freezeEnd - millis();
+    
+        // CONVERT TO SECOND AND ROUND
+        left = Math.ceil(timeLeftMs / 1000);
+    }
+    
+    // ENSURE COUNTDOWN DOES NOT GO BELOW 0
+    if (left < 0) {
+        left = 0;
+    }
+    
+    // UPDATING THE TEXT DISPLAYED IN COUNTDOWN
+    countDownSpan.textContent = Math.max(0, left);
+
+    // CLEAR OLD LIST
+    list.innerHTML = '';
+
+    // CHECK FOR ANY EMPTY
+    if (!rankingData || Object.keys(rankingData).length === 0) {
+        // WRITE NO SCORES IF EMPTY
+        const li = document.createElement('li');
+        li.textContent = "No scores yet";
+        list.appendChild(li);
+        // console.warn("rankingData is empty or undefined");
+        return;
+    }
+
+    // CONVERT OBJECT INTO ARRAY PAIRS
+    const sorted = Object.entries(rankingData)
+                         .sort((a, b) => b[1] - a[1]);
+
+    // LOOP FOR EACH PAIR
+    sorted.forEach(([id, score], idx) => {
+        // CREATES NEW LIST
+        const li = document.createElement('li');
+
+        // SHOW USER NAME + SCORE
+        li.textContent = getOrdinal(idx + 1) + '. ' + (userNames[id] || id) + ': ' + score + ' pts';
+
+        list.appendChild(li);
+    });
+}
+
+function getOrdinal(n) {
+    // POSSIBLE ORIDAL
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    // DEPENDING ON NUMBER GIVEN, POSSIBLE ORINAL
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 /*----------------------------------------------*/

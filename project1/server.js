@@ -32,6 +32,8 @@ let minW                = Infinity;
 let minH                = Infinity;  
 let vertexMatchOrder    = [];
 let claimedVertices     = [];
+let rankingData         = {};
+let lastHighestScore    = 0;
 
 // ADJUST VARIABLES
 const maxTilt           = 30;
@@ -49,7 +51,6 @@ let allNamed            = false;
 
 /* USER TESTING: 
 - INSTRUCTIONS ON SCREEN TO KNOW WHAT TO DO
-- HUGE TIMER
 */
 
 io.on('connection', function(socket){
@@ -59,6 +60,18 @@ io.on('connection', function(socket){
         connectedUSERS.push(socket.id);
         // console.log('Connected users:', connectedUSERS);
     }
+
+    // LISTEN FOR HIGHEST SCORE FOR NOW
+    socket.on('highScore', function(score){
+        // IF HIGHEST SCORE WAS BEATEN
+        if (score > lastHighestScore){
+            // UPDATE NEW HIGHEST
+            lastHighestScore = score;
+
+            // SENDING TO ALL USERS THIS NEWS
+            io.emit('highestScore', score);
+        }
+    })
 
     // LISTENING FOR THE NAME CLIENT HAS GIVEN
     // STORE AND SEND TO ALL
@@ -210,6 +223,35 @@ io.on('connection', function(socket){
         // console.log('otherTilt', {id: t.id, b:  t.b, g:  t.g});
     });
 
+    // LISTENS IF ANY CLIENT REACHED GOAL
+    socket.on('goalMET', function(){
+        // RESET SCORES
+        allScores = {}; 
+
+        // ASK EVERY CLIENT FOR SCORE
+        io.emit('requestSCORES');
+        // console.log('requestSCORES');
+    })
+
+    // LISTENS FOR INDIVIDUAL SCORES
+    socket.on('individualScores', function(data){
+        rankingData[data.id] = data.score;
+
+        // ONLY WHEN ALL IS COLLECTED SEND TO ALL
+        if (Object.keys(rankingData).length = lastCount){
+            io.emit('AllSCORES', rankingData);
+            // console.log('Final scores:', allScores);
+
+            // REMIND ALL USERS TO FREEZE GAME
+            io.emit('freezeGame', 20000);
+            // console.log('freezeGame');
+
+            // RESET AFTERWARDS 
+            setTimeout(resetServer, 20000);
+            console.log('resetGame');
+        }
+    })
+
     // LISTENING FOR A LEAVING CLIENT
     // SENDING TO ALL CLIENTS THIS INFO
     // ERASE THAT CLIENT FROM DATA
@@ -234,6 +276,14 @@ io.on('connection', function(socket){
 
 });
 
+function resetServer() {
+    allScores      = {};
+    vertexMatchOrder = [];
+    claimedVertices = [];
+    rebuildShape(lastCount);
+    startShapeTimer();
+}
+
 function rebuildShape(count) {
     // STORE NEW COUNT
     lastCount = count;
@@ -247,7 +297,7 @@ function rebuildShape(count) {
     for (let i = 0; i < count; i++) {
         claimedVertices.push(null);
     }
-    
+
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
         shapeVertexes.push({ 
