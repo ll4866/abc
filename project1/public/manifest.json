@@ -2,7 +2,7 @@
   "name": "Device Orientation P5",
   "icons": [
     {
-      "src": "assets/constellation.png",
+      "src": "assets/images/constellation.png",
       "type": "image/png",
       "sizes": "512x512"
     }

@@ -32,6 +32,7 @@ let rankingData     = null;
 let freezeEnd       = 0;
 let lastSentScore   = 0;
 let highestScore    = 0;
+let bgMusic, shapeSound, endSound, notificationSound;
 
 // TOUCH VARIABLE
 let touchStartTime  = 0;   
@@ -41,12 +42,13 @@ const MAX_SPEED     = 0.1;
 const RAMP_MS       = 1500;
 const FADE_MS       = 800;
 
-let mythTXT = '';
-let mythEnd = 0;
+// MYTH DATA
+let mythTXT         = '';
+let mythEnd         = 0;
 
 // SHAPE
 let numberOfDevices = 0; 
-let shapeVertexes = []; 
+let shapeVertexes   = []; 
 
 // TEXT INFO
 let instructions = 
@@ -71,7 +73,7 @@ function setup() {
     canvas.parent("p5-canvas-container");
 }
 
-function draw() {    
+function draw() {  
     /* ===  FREEZE HANDLING  === */
     // STOP GAME
     if (!gameON) {
@@ -517,12 +519,14 @@ socket.on('allChat', function(data){
             text: data.text, 
             time: millis() + expirePeriod
         };
-        // console.log('ℹ️ chat:', bubbles);
-        // console.log('ℹ️ chat:', bubbles[data.id]);
-        // console.log('current time:', millis());
+
+        // SOUND
+        notificationSound.play(); 
 
         // ADD 1 POINT PER CHAT MESSAGE RECEIVED
         myScore += 0.5;
+
+        // console.log('ℹ️ chat:', bubbles);
     }
 });
 
@@ -569,8 +573,11 @@ socket.on('shapeSuccess', ({ order, count, myth, time }) => {
     const myIndex = order.indexOf(myID);
     const score = 4 * count - 3 * myIndex;
     myScore += score;
-    console.log('earn points:', score);
-    console.log('my points:', myScore);
+    // console.log('earn points:', score);
+    // console.log('my points:', myScore);
+
+    // SOUND
+    shapeSound.play(); 
 
     // SHOWCASE MYTH
     document.getElementById('mythText').textContent = myth;
@@ -582,11 +589,10 @@ socket.on('shapeTimer', function(data){
     timeLeft = data.timeLeft * 1000;
 });
 
-
 /*----------------------------------------------*/
 // CHAT CONTROLS
 chatSend.addEventListener('click', function() {
-    sendChat()
+    sendChat();
 });
 
 chatInput.addEventListener('keyup', function(e){ 
@@ -704,8 +710,11 @@ function showRankingOverlay(show) {
     // IF 'show' then DISPLAY BOARD ELSE DOES NOT
     if (show) {
         board.style.display = 'block';
+        if (bgMusic) bgMusic.pause();
+        endSound.play(); 
     } else {
         board.style.display = 'none';
+        if (bgMusic) bgMusic.play(); 
     }
 }
   
@@ -771,16 +780,23 @@ function getOrdinal(n) {
 }
 
 /*----------------------------------------------*/
+// MYTH STORY (SIMILAR TO RANKING ^)
 function showMythBoard(show) {
     const board = document.getElementById('mythOverlay');
+
     if (!board) return;
 
-    board.style.display = show ? 'block' : 'none';
+    if (show) {
+        board.style.display = 'block';
+    } else {
+        board.style.display = 'none';
+    }
 }
 
 function drawMythOverlay() {
     const timerEl = document.getElementById('mythTimer');
     const mythTextEl = document.getElementById('mythText');
+   
     if (!timerEl || !mythTextEl) return;
 
     let left = 0;
@@ -797,7 +813,6 @@ function drawMythOverlay() {
         showMythBoard(false);
         mythTextEl.textContent = '';
         mythTXT = '';
-        // ⛔ do NOT set gameON = true here anymore
     }
 }
 
@@ -844,6 +859,28 @@ function handleOrientation(eventData){
     document.querySelector('#requestOrientationButton').style.display = "none";
     // console.log('ℹ️ Orientation:', eventData.alpha, eventData.beta, eventData.gamma);
     
+    // SOUNDS
+    bgMusic = document.createElement("audio");
+    bgMusic.src = "assets/sounds/BG.mp3";
+    bgMusic.loop = true;
+    bgMusic.volume = 0.2;
+    // bgMusic.play();
+
+    endSound = document.createElement("audio");
+    endSound.src = "assets/sounds/END.wav";
+    endSound.volume = 0.7;
+    // endSound.play(); 
+
+    shapeSound = document.createElement("audio");
+    shapeSound.src = "assets/sounds/BELL.wav";
+    shapeSound.volume = 0.3;
+    // shapeSound.play(); 
+    
+    notificationSound = document.createElement("audio");
+    notificationSound.src = "assets/sounds/NOT.wav";
+    notificationSound.volume = 0.5;
+    // notificationSound.play(); 
+
     alpha = eventData.alpha;
     beta = eventData.beta;
     gamma = eventData.gamma;      
