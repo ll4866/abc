@@ -22,36 +22,65 @@ const { IncomingMessage } = require('http');
 const io = new Server(HTTPSserver);
 
 // STORED VALUES
-let connectedUSERS      = [];
-let shapeVertexes       = [];
-let tilts               = {};
-let userNames           = {};
-let userPos             = {};
-let lastCount           = 0;
-let minW                = Infinity;
-let minH                = Infinity;  
-let vertexMatchOrder    = [];
-let claimedVertices     = [];
-let rankingData         = {};
-let lastHighestScore    = 0;
+let connectedUSERS       = [];
+let shapeVertexes        = [];
+let tilts                = {};
+let userNames            = {};
+let userPos              = {};
+let lastCount            = 0;
+let minW                 = Infinity;
+let minH                 = Infinity;  
+let vertexMatchOrder     = [];
+let claimedVertices      = [];
+let rankingData          = {};
+let lastHighestScore     = 0;
 
 // ADJUST VARIABLES
-const maxTilt           = 30;
-const HIT_DIST          = 30;
-const boost             = 3;
-const noBoost           = 1;
+const maxTilt            = 30;
+const HIT_DIST           = 30;
+const boost              = 3;
+const noBoost            = 1;
+const endGAMETIME        = 10;
 
 // TIMER FOR SHAPE
-const SHAPE_TIME_LIMIT  = 15;
-let shapeTimer          = null;
-let shapeEndTime        = 0;
+const SHAPE_TIME_LIMIT   = 15;
+let shapeTimer           = null;
+let shapeEndTime         = 0;
 
 // CONDITION
-let allNamed            = false; 
+let allNamed             = false; 
+
+// CONSTELLATION MYTH
+/* reference: tracery in p5.js 
+from Machine Learning for Artist & Designers F24 
+professor Gottfried Haider (gohai at nyu edu)
+*/
+const tracery            = require('./tracery.js');
+let shapeSolvedThisRound = false; 
+let breakTime            = 5;
+const mythGrammar = tracery.createGrammar({
+    name: ['Arin','Lyra','Cassiel','Tauren','Vega','Orion','Selune','Mira','Draven','Caelum'],
+    object: ['wolf','phoenix','serpent','lyre','mirror','spear','crown','swan','twin','lion'],
+    mood: ['silent','flickering','eternal','restless','forgotten','radiant','wandering','ancient'],
+    description: [
+      'Located between #adjacent# and #adjacent#, it forms a #mood# pattern that has guided travelers for centuries.',
+      'Said to mark the path of #name#, whose soul became the #object# in the heavens.',
+      'Visible only on the clearest nights, this #mood# constellation whispers stories of #theme#.',
+      'Legends say #name# placed these stars to remind mortals of #theme#.'
+    ],
+    adjacent: ['Pisces','Taurus','Orion','Aquila','Cygnus','Perseus','Draco','Pegasus','Leo'],
+    theme: ['hope and loss','journeys across time','forgotten kings','the first dawn','endless love','vanished empires'],
+    origin: ['Constellation #num#: #intro# #description#'],
+    intro: ['#name#’s #object#','The #mood# #object#','The #mood# spirit','A #mood# fragment of #theme#']
+});
+
+mythGrammar.addModifiers(tracery.baseEngModifiers);
+let mythTimer = null;
 
 io.on('connection', function(socket){
     console.log('a user connected', socket.id);
 
+    // TRACKING CONNECTED SOCKET CLIENTS
     if (!connectedUSERS.includes(socket.id)) {
         connectedUSERS.push(socket.id);
         // console.log('Connected users:', connectedUSERS);
@@ -239,11 +268,11 @@ io.on('connection', function(socket){
             // console.log('Final scores:', allScores);
 
             // REMIND ALL USERS TO FREEZE GAME
-            io.emit('freezeGame', 20000);
+            io.emit('freezeGame', endGAMETIME * 1000);
             // console.log('freezeGame');
 
             // RESET AFTERWARDS 
-            setTimeout(resetServer, 20000);
+            setTimeout(resetServer, endGAMETIME * 1000);
         }
     })
 
@@ -301,6 +330,9 @@ function resetServer() {
     // RESET SCORING
     lastHighestScore = 0;
 
+    // RESET TESTER
+    shapeSolvedThisRound = false; 
+
     // NEW SHAPE
     rebuildShape(lastCount);
     startShapeTimer();
@@ -310,6 +342,9 @@ function resetServer() {
 function rebuildShape(count) {
     // STORE NEW COUNT
     lastCount = count;
+
+    // CHECK ROUND BOOLAN
+    shapeSolvedThisRound = false;
 
     // RESET
     shapeVertexes.length = 0;
@@ -417,24 +452,53 @@ function checkConstellation() {
     }
 
     // IF ALL CONDITIONS IS MET
-    if (orderedOk) {
+    if (orderedOk && !shapeSolvedThisRound) {
+        // MARK ROUND DONE
+        shapeSolvedThisRound = true;
+
+        // BUILD CONSTELLATION MYTH
+        const myth = generateMyth();
+
         // SEND ORDER OF MATCH TO ALL
+        clearTimeout(shapeTimer);
         io.emit('shapeSuccess', {
             order: vertexMatchOrder,
-            count: lastCount
+            count: lastCount,
+            myth: myth,
+            time: breakTime
         });
+
+        // UNTIL TIME IS OUT DOES IT MAKE NEW SHAPE        
+        mythTimer = setTimeout(() => {
+            // NEW SHAPE
+            rebuildShape(lastCount);
+            startShapeTimer();
+            // console.log('reset');
+        }, breakTime * 1000);
         
-        // RESET TIMER
-        if (shapeTimer) clearTimeout(shapeTimer);
-        shapeTimer = null;
-        
-        // NEW SHAPE
-        rebuildShape(lastCount);
-        startShapeTimer();
-        // console.log('success');
+        /* console.log('success', {
+            order: vertexMatchOrder,
+            count: lastCount,
+            myth: myth,
+            time: breakTime
+        } );*/
     } else {
         // console.log('no success');
     }
+}
+
+// FUNCTION TO GENERATE MYTH
+function generateMyth() {
+    // RANDOM NUMBER
+    const num = Math.floor(Math.random() * 500) + 1;
+
+    // OTHER PARTS OF TRACERY
+    const intro = mythGrammar.flatten('#intro#');
+    const description = mythGrammar.flatten('#description#');
+
+    // COMBINE INTO FINAL MYTH
+    const myth = `Constellation ${num}: ${intro} ${description}`;
+    return myth;
 }
 
 function startShapeTimer() {

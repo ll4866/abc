@@ -41,6 +41,9 @@ const MAX_SPEED     = 0.1;
 const RAMP_MS       = 1500;
 const FADE_MS       = 800;
 
+let mythTXT = '';
+let mythEnd = 0;
+
 // SHAPE
 let numberOfDevices = 0; 
 let shapeVertexes = []; 
@@ -68,25 +71,29 @@ function setup() {
     canvas.parent("p5-canvas-container");
 }
 
-function draw() {
+function draw() {    
     /* ===  FREEZE HANDLING  === */
     // STOP GAME
     if (!gameON) {
-        // SHOW RANKING
+        // DRAWING BOARDS OF NEWS
         drawRankingBoard();
 
-        // 15 SEC SHOWCASE
+        // TIME CONTDOWN
         if (millis() > freezeEnd) {
             // HIDE RANKING
             showRankingOverlay(false);
-            
+
             // RESET EVERYTING ONCE TIME IS OUT
             gameON   = true;
-            myScore  = 0;
-            rankingData = null;
+            if (rankingData != null){
+                myScore  = 0;
+                rankingData = null;
+            }
         }
         return;
     }
+
+    drawMythOverlay();  
   /* ============================= */
     background(10, 15, 30); 
 
@@ -99,10 +106,10 @@ function draw() {
     }
 
     // STARS
-    randomSeed(31415); 
+    randomSeed(35000); 
     for (let i = 0; i < 250; i++) {
         let x = random(width);
-        let y = random(height);
+        let y = random(80, height);
         let s = random(1.2, 4);
         let tw = 60 + 25 * sin(millis() * 0.002 + i);
         stroke(255, 255, 220, tw);
@@ -115,6 +122,7 @@ function draw() {
     // TABLE
     fill(255, 200);
     stroke(0);
+    strokeWeight(1);
     // rect(width-60,10, 55, 50, 6);
     rect(5, 10, 90, 75, 6);
 
@@ -135,20 +143,20 @@ function draw() {
 
     // MATCH COUNT & TIME
     let goal = numberOfDevices * 12 + 10; 
+    let countDown = max(0, ceil(timeLeft / 1000));
 
     noStroke();
     fill(0);
     textAlign(LEFT);
     textSize(10);
     text("My Points: " + myScore + "/" + goal,                10, 22);
-    text("Time Left: " + max(0, ceil(timeLeft / 1000)) + "s", 10, 35);    
+    text("Time Left: " + countDown + "s", 10, 35);    
     text("Leading Score: " + highestScore,                    10, 48);    
     text("beta: "   + round(beta),                            10, 61);
     text("gamma: "  + round(gamma),                           10, 74);
     // text("devices: "+ numberOfDevices,                        10, 87);
 
     // INSTRUCTIONS
-    fill(255);
     text(instructions, 5 + 90 + 10, 0, 270, 95);
 
     // IF SCORE REACH GOAL TELL SERVER
@@ -158,6 +166,15 @@ function draw() {
         // console.log('goalMET');
     } else {
         sendScoreIfChanged();
+    }
+
+    // SHOWCASE A COUNTDOWN OF LAST 5 SEC
+    if(countDown <= 5){
+        fill(50);
+        textAlign(CENTER);
+        textSize(60);
+        text(countDown, width/2, height/2);
+        textSize(10);
     }
     /*----------------------------------------------*/
     /* --- MOVEMENT --- */
@@ -194,10 +211,13 @@ function draw() {
     }
 
     // MOVEMENT EQUATION
-    myX += gamma * mySpeed * boost;
-    myY += beta  * mySpeed * boost;
-    myX = constrain(myX, 25, width  - 25);
-    myY = constrain(myY, 80, height - 80);    
+    // WHEN THERE IS NO MYTH TO SHOW
+    if (mythTXT === '') {
+        myX += gamma * mySpeed * boost;
+        myY += beta  * mySpeed * boost;
+        myX = constrain(myX, 25, width  - 25);
+        myY = constrain(myY, 80, height - 80);
+    }    
 
     // SPEED UP WHEN TOUCHED
     if (touching) {
@@ -263,6 +283,8 @@ function draw() {
 
 function drawName(name, x, y, isMe) {
     push();
+        name = name || '';
+
         textAlign(CENTER, CENTER);
 
         let w = textWidth(name);
@@ -339,13 +361,13 @@ function arrow(b, g, x, y){
         rotate(angle);
 
         // DIFFRENTIATE ME FROM OTHER
-        let size = 15;
+        let sz = 15;
         if (isItMe == false) {
-            size = 10;
+            sz = 10;
             stroke(160, 220, 235);
             fill(160, 220, 235);
         } else {
-            size = 15;
+            sz = 15;
             stroke(102, 126, 23);
             fill(102, 126, 23);
         }
@@ -354,18 +376,18 @@ function arrow(b, g, x, y){
         if (boost > 1) {
             stroke(255, 0,0);
             strokeWeight(5);
-            line(0, 0, size + 5, 0);
-            line(size + 5, 0, size - size/10, -10);
-            line(size + 5, 0, size - size/10,  10);
+            line(0, 0, sz + 5, 0);
+            line(sz + 5, 0, sz - sz/10, -10);
+            line(sz + 5, 0, sz - sz/10,  10);
             fill(255, 0, 0);
         } else {
             strokeWeight(2);
-            line(0, 0, size + 2.5, 0);
-            line(size + 2.5, 0, 4/5 * size, -8);
-            line(size + 2.5, 0, 4/5 * size,  8);
+            line(0, 0, sz + 2.5, 0);
+            line(sz + 2.5, 0, 4/5 * sz, -8);
+            line(sz + 2.5, 0, 4/5 * sz,  8);
         }
 
-        ellipse(0, 0, size + 5);
+        ellipse(0, 0, sz + 5);
     pop();
 }
 
@@ -402,16 +424,17 @@ function sendScoreIfChanged() {
 
         // UPDATE NEW SCORE
         lastSentScore = myScore;
-        console.log('Score sent to server:', myScore);
+        // console.log('Score sent to server:', myScore);
     }
 }
+
 /*----------------------------------------------*/
 // SOCKET COMMUNICATION
 
 // LISTENING FOR HIGHEST SCORE FOR NOW
 socket.on('highestScore', function(score){
     highestScore = score ;
-    console.log("Received highScore:", score);
+    // console.log("Received highScore:", score);
 })
 
 // LISTENING IF ANYONE HAS WON
@@ -442,7 +465,7 @@ socket.on('freezeGame', (ms) => {
 
     // SHOWCASE RANKING
     showRankingOverlay(true);
-  });
+});
 
 // LISTENING FOR THE NAMES THE USERS HAVE GIVEN
 socket.on('userList', list => {
@@ -509,6 +532,7 @@ socket.on('allTilt', function(data){
     // console.log('ℹ️ Other user tilt data', data);
 });
 
+// LISTENING FOR TILT OF OTHER USERS
 socket.on('otherTilt',function(data){
     if(data.id !== myID){
         otherTILT[data.id] = { 
@@ -529,17 +553,33 @@ socket.on('left', function(id){
     // console.log('ℹ️ A user left');
 });
 
-// LISTENING FOR HOW MANY SUCCESS MATCH
-socket.on('shapeSuccess', function(data){
-    const { order, count } = data;
-    const score = 4 * count - 3 * order.indexOf(myID);
+// LISTENING FOR SUCCES SHAPE
+// SHOCASING MYTH STORY
+socket.on('shapeSuccess', ({ order, count, myth, time }) => {
+    // FREEZE THE GAME
+    gameON = false;
+
+    // COUNTDOWN
+    mythEnd = millis() + time * 1000; 
+
+    // MYTH
+    mythTXT = myth
+
+    // SCORE
+    const myIndex = order.indexOf(myID);
+    const score = 4 * count - 3 * myIndex;
     myScore += score;
-    // console.log('Your score:', myScore);
+    console.log('earn points:', score);
+    console.log('my points:', myScore);
+
+    // SHOWCASE MYTH
+    document.getElementById('mythText').textContent = myth;
+    showMythBoard(true);
 });
 
 // LISTENING FOR TIME LEFT UNTIL NEW SHAPE
 socket.on('shapeTimer', function(data){
-    timeLeft = data.timeLeft* 1000;
+    timeLeft = data.timeLeft * 1000;
 });
 
 
@@ -680,12 +720,9 @@ function drawRankingBoard() {
 
     // CHECK IF BOTH `freezeEnd` AND `millis` EXIST
     let left = 0;
-    if (freezeEnd && millis) {
-        // TIME LEFT CALCULATE
-        const timeLeftMs = freezeEnd - millis();
-    
+    if (freezeEnd && millis) {   
         // CONVERT TO SECOND AND ROUND
-        left = Math.ceil(timeLeftMs / 1000);
+        left = Math.ceil((freezeEnd - millis()) / 1000);
     }
     
     // ENSURE COUNTDOWN DOES NOT GO BELOW 0
@@ -731,6 +768,37 @@ function getOrdinal(n) {
     const v = n % 100;
     // DEPENDING ON NUMBER GIVEN, POSSIBLE ORINAL
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+/*----------------------------------------------*/
+function showMythBoard(show) {
+    const board = document.getElementById('mythOverlay');
+    if (!board) return;
+
+    board.style.display = show ? 'block' : 'none';
+}
+
+function drawMythOverlay() {
+    const timerEl = document.getElementById('mythTimer');
+    const mythTextEl = document.getElementById('mythText');
+    if (!timerEl || !mythTextEl) return;
+
+    let left = 0;
+    if (mythEnd && typeof millis === 'function') {
+        left = Math.ceil((mythEnd - millis()) / 1000);
+    }
+
+    if (left < 0) left = 0;
+    timerEl.textContent = left;
+
+    if (left > 0) {
+        showMythBoard(true);
+    } else {
+        showMythBoard(false);
+        mythTextEl.textContent = '';
+        mythTXT = '';
+        // ⛔ do NOT set gameON = true here anymore
+    }
 }
 
 /*----------------------------------------------*/

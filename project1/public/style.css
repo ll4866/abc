@@ -135,3 +135,32 @@ body{
   font-weight: 700;
   color: #38b854;
 }
+
+/* MYTH BOARD */
+#mythOverlay {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  max-width: 90vw;          /* never wider than screen */
+  max-height: 90vh;         /* never taller than screen */
+  background: rgba(0, 0, 0, 0.85);
+  color: #fff;
+  padding: 1.5rem 2rem;     /* slightly tighter padding */
+  border-radius: 1rem;
+  font-size: 1.1rem;        /* ↓ from 1.5rem */
+  text-align: center;
+  z-index: 999;
+  overflow-wrap: break-word; /* force long words to break */
+  word-wrap: break-word;
+  display: none;
+}
+
+#mythText {
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
+#mythTimer {
+  font-weight: 700;
+  color: #38b854;
+}
