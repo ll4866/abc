@@ -41,6 +41,7 @@ const HIT_DIST           = 30;
 const boost              = 3;
 const noBoost            = 1;
 const endGAMETIME        = 10;
+let gameEND              = false;
 
 // TIMER FOR SHAPE
 const SHAPE_TIME_LIMIT   = 15;
@@ -57,7 +58,7 @@ professor Gottfried Haider (gohai at nyu edu)
 */
 const tracery            = require('./tracery.js');
 let shapeSolvedThisRound = false; 
-let breakTime            = 5;
+let breakTime            = 10;
 const mythGrammar = tracery.createGrammar({
     name: ['Arin','Lyra','Cassiel','Tauren','Vega','Orion','Selune','Mira','Draven','Caelum'],
     object: ['wolf','phoenix','serpent','lyre','mirror','spear','crown','swan','twin','lion'],

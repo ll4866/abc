@@ -29,9 +29,11 @@ let timeLeft        = 0;
 let myScore         = 0;
 let gameON          = true;
 let rankingData     = null;
+let freezeType      = null;
 let freezeEnd       = 0;
 let lastSentScore   = 0;
 let highestScore    = 0;
+let gainScore       = 0;
 let bgMusic, shapeSound, endSound, notificationSound;
 
 // TOUCH VARIABLE
@@ -77,25 +79,28 @@ function draw() {
     /* ===  FREEZE HANDLING  === */
     // STOP GAME
     if (!gameON) {
-        // DRAWING BOARDS OF NEWS
-        drawRankingBoard();
+        if (freezeType === 'ranking') {
+            // DRAWING BOARDS OF NEWS
+            drawRankingBoard();
 
-        // TIME CONTDOWN
-        if (millis() > freezeEnd) {
-            // HIDE RANKING
-            showRankingOverlay(false);
+            // TIME CONTDOWN
+            if (millis() > freezeEnd) {
+                // HIDE RANKING
+                showRankingOverlay(false);
 
-            // RESET EVERYTING ONCE TIME IS OUT
-            gameON   = true;
-            if (rankingData != null){
-                myScore  = 0;
-                rankingData = null;
+                // RESET EVERYTING ONCE TIME IS OUT
+                gameON   = true;
+                if (rankingData != null){
+                    myScore  = 0;
+                    rankingData = null;
+                }
             }
+        } else if (freezeType === 'myth'){
+            drawMythOverlay();   
         }
         return;
     }
-
-    drawMythOverlay();  
+    
   /* ============================= */
     background(10, 15, 30); 
 
@@ -151,14 +156,38 @@ function draw() {
     fill(0);
     textAlign(LEFT);
     textSize(10);
-    text("My Points: " + myScore + "/" + goal,                10, 22);
-    text("Time Left: " + countDown + "s", 10, 35);    
-    text("Leading Score: " + highestScore,                    10, 48);    
-    text("beta: "   + round(beta),                            10, 61);
-    text("gamma: "  + round(gamma),                           10, 74);
+    text("My Points: "      + myScore + "/" + goal,     10, 22);
+    text("Time Left: "      + countDown + "s",          10, 35);    
+    
+    // WARNING IF SOMETHING IS WRONG
+    if(myScore < highestScore){
+        fill(255,0,0);
+    } else {
+        fill(0);
+    }
+    text("Leading Score: "  + highestScore,             10, 48);    
+    
+    // WARNING IF SOMETHING IS WRONG
+    if(boost > 1 && Math.abs(beta) > 30){
+        fill(255,0,0);
+    } else {
+        fill(0);
+    }
+    text("beta: "           + round(beta),              10, 61);
+    
+    // WARNING IF SOMETHING IS WRONG
+    if(boost > 1 && Math.abs(gamma) > 30){
+        fill(255,0,0);
+    } else {
+        fill(0);
+    }
+
+    text("gamma: "          + round(gamma),             10, 74);
     // text("devices: "+ numberOfDevices,                        10, 87);
 
     // INSTRUCTIONS
+    stroke(0.5);
+    fill(255);
     text(instructions, 5 + 90 + 10, 0, 270, 95);
 
     // IF SCORE REACH GOAL TELL SERVER
@@ -172,9 +201,21 @@ function draw() {
 
     // SHOWCASE A COUNTDOWN OF LAST 5 SEC
     if(countDown <= 5){
-        fill(50);
+        if(countDown <= 3){
+            // PULSE FACTOR
+            let pulse = sin(millis() * 0.005);
+
+            // MAP PULSE FOR SIZE AND RED BRIGTNESS
+            let glow = map(pulse, -1, 1, 200, 255);
+            let size = map(pulse, -1, 1, 60, 70);
+            fill(glow,0,0);
+            textSize(size);
+        } else{
+            fill(25);
+            textSize(60);
+        }
         textAlign(CENTER);
-        textSize(60);
+        
         text(countDown, width/2, height/2);
         textSize(10);
     }
@@ -460,13 +501,17 @@ socket.on('AllSCORES', function(data){
 socket.on('freezeGame', (ms) => {
     // FREEZE THE GAME
     gameON = false;
-    // console.log('gameON:', gameON);
+    
+    // FREEZE TYPE
+    freezeType = 'ranking';
 
     // COUNTDOWN
     freezeEnd = millis() + ms;
 
     // SHOWCASE RANKING
     showRankingOverlay(true);
+
+    // console.log('gameON:', gameON);
 });
 
 // LISTENING FOR THE NAMES THE USERS HAVE GIVEN
@@ -560,28 +605,34 @@ socket.on('left', function(id){
 // LISTENING FOR SUCCES SHAPE
 // SHOCASING MYTH STORY
 socket.on('shapeSuccess', ({ order, count, myth, time }) => {
-    // FREEZE THE GAME
-    gameON = false;
-
-    // COUNTDOWN
-    mythEnd = millis() + time * 1000; 
-
-    // MYTH
-    mythTXT = myth
-
     // SCORE
     const myIndex = order.indexOf(myID);
     const score = 4 * count - 3 * myIndex;
     myScore += score;
+    gainScore = score;
     // console.log('earn points:', score);
     // console.log('my points:', myScore);
 
-    // SOUND
-    shapeSound.play(); 
+    if (gameON) {
+        // FREEZE THE GAME
+        gameON = false;
 
-    // SHOWCASE MYTH
-    document.getElementById('mythText').textContent = myth;
-    showMythBoard(true);
+        // FREEZE TYPE
+        freezeType = 'myth';
+
+        // COUNTDOWN
+        mythEnd = millis() + time * 1000; 
+
+        // MYTH
+        mythTXT = myth
+
+        // SOUND
+        shapeSound.play(); 
+
+        // SHOWCASE MYTH
+        document.getElementById('mythText').textContent = myth;
+        showMythBoard(true);
+    }
 });
 
 // LISTENING FOR TIME LEFT UNTIL NEW SHAPE
@@ -623,6 +674,9 @@ function sendChat() {
 
     // ADD POINTS PER CHAT MESSAGE
     myScore += 2;
+    
+    // SOUND
+    notificationSound.play(); 
 
     // CLEAR CHATBOX
     chatInput.value = '';
@@ -783,11 +837,11 @@ function getOrdinal(n) {
 // MYTH STORY (SIMILAR TO RANKING ^)
 function showMythBoard(show) {
     const board = document.getElementById('mythOverlay');
-
+        
     if (!board) return;
 
     if (show) {
-        board.style.display = 'block';
+        board.style.display = 'flex';
     } else {
         board.style.display = 'none';
     }
@@ -796,7 +850,8 @@ function showMythBoard(show) {
 function drawMythOverlay() {
     const timerEl = document.getElementById('mythTimer');
     const mythTextEl = document.getElementById('mythText');
-   
+    const scoreTextEl = document.getElementById('score');
+
     if (!timerEl || !mythTextEl) return;
 
     let left = 0;
@@ -807,12 +862,17 @@ function drawMythOverlay() {
     if (left < 0) left = 0;
     timerEl.textContent = left;
 
+    scoreTextEl.textContent = gainScore;
+
     if (left > 0) {
         showMythBoard(true);
     } else {
         showMythBoard(false);
         mythTextEl.textContent = '';
         mythTXT = '';
+        gameON = true;
+        freezeType = null;
+        gainScore = 0;
     }
 }
 
@@ -860,26 +920,34 @@ function handleOrientation(eventData){
     // console.log('ℹ️ Orientation:', eventData.alpha, eventData.beta, eventData.gamma);
     
     // SOUNDS
-    bgMusic = document.createElement("audio");
-    bgMusic.src = "assets/sounds/BG.mp3";
-    bgMusic.loop = true;
-    bgMusic.volume = 0.2;
-    // bgMusic.play();
+    if (!bgMusic) {
+        bgMusic = document.createElement("audio");
+        bgMusic.src = "assets/sounds/BG.mp3";
+        bgMusic.loop = true;
+        bgMusic.volume = 0.2;
+        bgMusic.play();
+    }
 
-    endSound = document.createElement("audio");
-    endSound.src = "assets/sounds/END.wav";
-    endSound.volume = 0.7;
-    // endSound.play(); 
+    if (!endSound) {
+        endSound = document.createElement("audio");
+        endSound.src = "assets/sounds/END.wav";
+        endSound.volume = 0.7;
+        // endSound.play(); 
+    }
 
-    shapeSound = document.createElement("audio");
-    shapeSound.src = "assets/sounds/BELL.wav";
-    shapeSound.volume = 0.3;
-    // shapeSound.play(); 
+    if (!shapeSound) {
+        shapeSound = document.createElement("audio");
+        shapeSound.src = "assets/sounds/BELL.wav";
+        shapeSound.volume = 0.3;
+        // shapeSound.play(); 
+    }
     
-    notificationSound = document.createElement("audio");
-    notificationSound.src = "assets/sounds/NOT.wav";
-    notificationSound.volume = 0.5;
-    // notificationSound.play(); 
+    if (!notificationSound) {
+        notificationSound = document.createElement("audio");
+        notificationSound.src = "assets/sounds/NOT.wav";
+        notificationSound.volume = 0.5;
+        // notificationSound.play();
+    }
 
     alpha = eventData.alpha;
     beta = eventData.beta;
