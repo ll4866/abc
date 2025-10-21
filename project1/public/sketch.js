@@ -54,15 +54,13 @@ let shapeVertexes   = [];
 
 // TEXT INFO
 let instructions = 
-`You are the Green Circle; others are Blue.
-1. Be the first to reach the top score in "My Points" (top-left).
-2. Every 15s, a shape appears. Move to a vertex to score. First to a vertex earns most points, next earns less.
-3. Chat to earn points: sender gets more, receiver gets less.`
-;
+`You are the Green Circle; others are Blue.  
+1. Reach the top score in "My Points" (top-left) before anyone else.  
+2. Every 15s, a shape appears. Tilt your device to move to a vertex. Points are awarded based on who reaches vertices first.  
+3. Chat to earn points: sender earns more, receiver earns less.`;
 
 let warning = 
-`WARNING: 2 Players leaned the same way! Speed up!`
-;
+`WARNING: 2 Players leaned the same way! Speed up!`;
 
 /*----------------------------------------------*/
 function setup() {
