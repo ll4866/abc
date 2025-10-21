@@ -55,9 +55,12 @@ let shapeVertexes   = [];
 // TEXT INFO
 let instructions = 
 `You are the Green Circle; others are Blue.  
-1. Reach the top score in "My Points" (top-left) before anyone else.  
-2. Every 15s, a shape appears. Tilt your device to move to a vertex. Points are awarded based on who reaches vertices first.  
-3. Chat to earn points: sender earns more, receiver earns less.`;
+GOAL: Be the first to complete "My Points" (top-left).  
+EARN POINTS BY:
+1. Matching the White Star Constellation shape with other players. Move circle to stars. (make sure line also matches)
+2. Type in chat to converse with others and earn points.
+MECHANICS: tilt to move, tap screen to speed up, & chat`;
+
 
 let warning = 
 `WARNING: 2 Players leaned the same way! Speed up!`;
@@ -163,9 +166,9 @@ function draw() {
     } else {
         fill(0);
     }
-    text("Leading Score: "  + highestScore,             10, 48);    
-    
-    // WARNING IF SOMETHING IS WRONG
+    text("Highest score: " + highestScore, 10, 48); 
+
+    // WARNING IF ABOVE BETA TILT + BOOST
     if(boost > 1 && Math.abs(beta) > 30){
         fill(255,0,0);
     } else {
@@ -173,7 +176,7 @@ function draw() {
     }
     text("beta: "           + round(beta),              10, 61);
     
-    // WARNING IF SOMETHING IS WRONG
+    // WARNING IF ABOVE GAMMA TILT + BOOST
     if(boost > 1 && Math.abs(gamma) > 30){
         fill(255,0,0);
     } else {
@@ -184,9 +187,9 @@ function draw() {
     // text("devices: "+ numberOfDevices,                        10, 87);
 
     // INSTRUCTIONS
-    stroke(0.5);
+    stroke(0);
     fill(255);
-    text(instructions, 5 + 90 + 10, 0, 270, 95);
+    text(instructions, 5 + 90 + 10, 0, 270, 110);
 
     // IF SCORE REACH GOAL TELL SERVER
     if (myScore > goal) {
@@ -340,21 +343,18 @@ function drawName(name, x, y, isMe) {
         }
 
         // RECTANGLE BUBBLE
+        noStroke();
         rect(
             x - w / 2 - pad, 
-            y - 25 - h / 2 - pad,
+            y - 30 - h / 2 - pad,
             w + 2 * pad, 
             h + 2 * pad,
             8
         );
 
-        // DIFFERENTIATE OTHER AND USER COLOR 
-        if (isMe) {
-            fill(180);
-        } else {
-            fill(0); 
-        }
-        text(name, x, y - 25);
+        // NAME
+        fill(0); 
+        text(name, x, y - 30);
     pop();
 }
 
@@ -686,7 +686,7 @@ function sendChat() {
 function drawBubble(id, x, y){
     // BUBBLE TEXTBOX
     let bubbleMargin = 4;
-    let bubbleY = - 25;
+    let bubbleY = - 30;
     textAlign(CENTER,CENTER);
 
     // PREVENT EMPTY
@@ -711,7 +711,17 @@ function drawBubble(id, x, y){
             
             // TEXT
             fill(0);
-            text( id.text, x, y - bubbleY);            
+            noStroke();
+            text( id.text, x, y - bubbleY);     
+            
+            textSize(14);
+            if(id === bubbles['me']){
+                fill(102, 126, 23); 
+                text('+ 2pts', x + 30, y - 13);
+            } else {
+                fill(160, 220, 235); 
+                text('+ 0.5pts', x + 30, y - 13);
+            }              
         }
     }
 }

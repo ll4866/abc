@@ -384,7 +384,7 @@ function checkConstellation() {
     // TRACK WHICH USERS HAVE CLAIMED WHICH VERTICES
     vertexMatchOrder = vertexMatchOrder || [];
     claimedVertices = claimedVertices || new Array(shapeVertexes.length).fill(null);
-    
+
     // LOOP THROUGH EACH ACTIVE USER AND THEIR POSITION
     for (const [id, pos] of Object.entries(userPos)) {
 
@@ -453,7 +453,7 @@ function checkConstellation() {
     }
 
     // IF ALL CONDITIONS IS MET
-    if (orderedOk && !shapeSolvedThisRound) {
+    if (orderedOk && !shapeSolvedThisRound && count > 1) {
         // MARK ROUND DONE
         shapeSolvedThisRound = true;
 
