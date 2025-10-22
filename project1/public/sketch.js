@@ -55,12 +55,11 @@ let shapeVertexes   = [];
 // TEXT INFO
 let instructions = 
 `You are the Green Circle; others are Blue.  
-GOAL: Be the first to complete "My Points" (top-left).  
+GOAL: Be the first to fill your "My Points" (top-left).  
 EARN POINTS BY:
 1. Matching the White Star Constellation shape with other players. Move circle to stars. (make sure line also matches)
 2. Type in chat to converse with others and earn points.
 MECHANICS: tilt to move, tap screen to speed up, & chat`;
-
 
 let warning = 
 `WARNING: 2 Players leaned the same way! Speed up!`;
@@ -166,7 +165,7 @@ function draw() {
     } else {
         fill(0);
     }
-    text("Highest score: " + highestScore, 10, 48); 
+    text("Highest score: " + highestScore,              10, 48); 
 
     // WARNING IF ABOVE BETA TILT + BOOST
     if(boost > 1 && Math.abs(beta) > 30){
@@ -174,7 +173,7 @@ function draw() {
     } else {
         fill(0);
     }
-    text("beta: "           + round(beta),              10, 61);
+    text("beta: "          + round(beta),              10, 61);
     
     // WARNING IF ABOVE GAMMA TILT + BOOST
     if(boost > 1 && Math.abs(gamma) > 30){
@@ -183,8 +182,8 @@ function draw() {
         fill(0);
     }
 
-    text("gamma: "          + round(gamma),             10, 74);
-    // text("devices: "+ numberOfDevices,                        10, 87);
+    text("gamma: "         + round(gamma),             10, 74);
+    // text("devices: "       + numberOfDevices,          10, 87);
 
     // INSTRUCTIONS
     stroke(0);
@@ -283,9 +282,12 @@ function draw() {
     
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
+    const sortedIds    = Object.keys(allPOS).sort();
+    const sortedPoints = sortedIds.map(id => allPOS[id]);
+    
     // DRAWING LINES CONNECTING
     drawConnections(shapeVertexes);
-    drawConnections(Object.values(allPOS));
+    drawConnections(sortedPoints);
     
     // DRAWING OTHER CLIENTS
     isItMe = false;

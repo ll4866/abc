@@ -44,7 +44,7 @@ const endGAMETIME        = 10;
 let gameEND              = false;
 
 // TIMER FOR SHAPE
-const SHAPE_TIME_LIMIT   = 15;
+let SHAPE_TIME_LIMIT     = 15;
 let shapeTimer           = null;
 let shapeEndTime         = 0;
 
@@ -63,17 +63,37 @@ const mythGrammar = tracery.createGrammar({
     name: ['Arin','Lyra','Cassiel','Tauren','Vega','Orion','Selune','Mira','Draven','Caelum'],
     object: ['wolf','phoenix','serpent','lyre','mirror','spear','crown','swan','twin','lion'],
     mood: ['silent','flickering','eternal','restless','forgotten','radiant','wandering','ancient'],
-    description: [
-      'Located between #adjacent# and #adjacent#, it forms a #mood# pattern that has guided travelers for centuries.',
-      'Said to mark the path of #name#, whose soul became the #object# in the heavens.',
-      'Visible only on the clearest nights, this #mood# constellation whispers stories of #theme#.',
-      'Legends say #name# placed these stars to remind mortals of #theme#.'
-    ],
     adjacent: ['Pisces','Taurus','Orion','Aquila','Cygnus','Perseus','Draco','Pegasus','Leo'],
-    theme: ['hope and loss','journeys across time','forgotten kings','the first dawn','endless love','vanished empires'],
-    origin: ['Constellation #num#: #intro# #description#'],
-    intro: ['#name#’s #object#','The #mood# #object#','The #mood# spirit','A #mood# fragment of #theme#']
-});
+    theme: [
+      'hope and loss','journeys across time','forgotten kings','the first dawn',
+      'endless love','vanished empires','shattered dreams','unspoken destinies'
+    ],
+  
+    origin: [
+      '#intro# #description# #legend#'
+    ],
+  
+    intro: [
+      'Shaped like a #mood# #object#, this constellation lies between #adjacent# and #adjacent#.',
+      'Constellation #num# forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
+      'High above, the stars arrange themselves into the likeness of a #mood# #object#, known to sailors and dreamers alike.'
+    ],
+  
+    description: [
+      'Observers say its stars trace the motion of #name#, who once roamed the heavens in search of #theme#.',
+      'The ancients believed its form told of #theme#, and would whisper prayers to it under moonlight.',
+      'On clear nights, its shape seems to shift, as if the #object# itself stirs among the stars.',
+      'To those who watch long enough, the constellation appears alive — a story drawn in fire across the sky.'
+    ],
+  
+    legend: [
+      'Legends claim that #name# carved its shape into the heavens to preserve their memory for all eternity.',
+      'Some say that when the constellation fades, the spirit of the #object# descends to walk the earth once more.',
+      'Poets tell that its light carries the last breath of #name#, echoing through the cosmos as a song of #theme#.',
+      'Travelers who followed its outline believed it would guide them toward their destined path beneath the stars.'
+    ]
+  });
+  
 
 mythGrammar.addModifiers(tracery.baseEngModifiers);
 let mythTimer = null;
@@ -133,20 +153,22 @@ io.on('connection', function(socket){
     socket.on('count', function(data) {
         // IF COUNT DOES NOT MATCH
         if (data.c !== lastCount) {
+            // STORE NEW COUNT
+            lastCount = data.c;
+
             // IF CANVAS DOES NOT MATCH
             if (data.w < minW || data.h < minH) {
                 // RECORDING SMALLEST CANVAS
                 minW = data.w;
                 minH = data.h;
                 
-                // GIVEN FRAME IS INCORRECT
                 // RESHAPE
                 rebuildShape(data.c);
                 startShapeTimer();
 
                 // console.log('size', minW, minH);
             }
-            // GIVEN COUNT IS INCORRECT
+
             // RESHAPE
             rebuildShape(data.c);
             startShapeTimer();
@@ -341,9 +363,6 @@ function resetServer() {
 }
 
 function rebuildShape(count) {
-    // STORE NEW COUNT
-    lastCount = count;
-
     // CHECK ROUND BOOLAN
     shapeSolvedThisRound = false;
 
@@ -355,6 +374,7 @@ function rebuildShape(count) {
     claimedVertices = [];
     for (let i = 0; i < count; i++) {
         claimedVertices.push(null);
+        vertexMatchOrder.sort((idA, idB) => idA.localeCompare(idB));
     }
 
     // DEFINE PLAYABLE AREA BASED ON CLIENT CONSTRAINTS
@@ -378,9 +398,13 @@ function rebuildShape(count) {
 }
 
 function checkConstellation() {
-    const users = Object.values(userPos);
-    const userArr = users;  
+    const users = Object.entries(userPos)
+                   .map(([id, pos]) => ({ id, ...pos }))
+                   .sort((a, b) => a.id.localeCompare(b.id));
+    const userArr = users.sort((a, b) => a.id.localeCompare(b.id));
 
+
+    // 1. MATCH USERS TO VETICES THEY CATCH
     // TRACK WHICH USERS HAVE CLAIMED WHICH VERTICES
     vertexMatchOrder = vertexMatchOrder || [];
     claimedVertices = claimedVertices || new Array(shapeVertexes.length).fill(null);
@@ -413,45 +437,74 @@ function checkConstellation() {
         }
     }
 
+    // 2. CHECKING ORDER
+    const vertexCount = shapeVertexes.length;
+    const allClaimed = vertexMatchOrder.length === vertexCount;
+
+    // CHECK IF ALL VERTICES HAVE BEEN CLAIMED AND MORE THAN 1 PLAYER TO PROCEED
+    if (lastCount <= 1 || !allClaimed) return;
+    // console.log('all claimed', lastCount);
+    
+    // IF THERE IS LESS THAN 3 PLAYERS ORDER IS OK, ELSE CHECK ORDER
     // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
-    // (any consecutive sequence of users with positions
-    // that match the sequence of shape vertexes)
+        // (any consecutive sequence of users with positions
+        // that match the sequence of shape vertexes)
     let orderedOk = false;
-    const count = shapeVertexes.length;
+    if (lastCount < 4) {
+        orderedOk = true;
+        // console.log('3 or fewer players – order auto-OK', lastCount);
+    } else {
+        // SLIDE A WINDOW
+        // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
+        // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
+        for (let start = 0; start <= lastCount - vertexCount; start++) {
+            // COPY CURRENT GROUP
+            const block = userArr.slice(start, start + vertexCount);
 
-    // SLIDE A WINDOW OF *count* CONSECUTIVE USERS
-    // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
-    // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
-    for (let start = 0; start <= userArr.length - count; start++) {
-        // COPY CURRENT GROUP
-        const block = userArr.slice(start, start + count);
+            // TRY BOTH CLOCKWISE AND COUNTERCLOCKWISE VERSIONS
+            const vertexOrders = [
+                shapeVertexes,
+                [...shapeVertexes].reverse()
+            ];
 
-        // GENERATE ALL CYCIC RATIONS OF "shapeVertexes"
-        for (let shift = 0; shift < count; shift++) {
-            // CREATES 1 ROATION
-            const rotated = [];
-            for (let j = 0; j < count; j++) {
-                // SHIFT 1 TO THE RIGHT, BUT ADAPT TO COUNT
-                // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
-                rotated.push(shapeVertexes[(j + shift) % count]);
+            for (const orderVariant of vertexOrders) {
+
+                // GENERATE ALL CYCIC RATIONS OF "shapeVertexes"
+                for (let shift = 0; shift < vertexCount; shift++) {
+                    
+                    // CREATES 1 ROATION
+                    const rotated = [];
+                    for (let j = 0; j < vertexCount; j++) {
+                        // SHIFT 1 TO THE RIGHT, BUT ADAPT TO COUNT
+                        // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
+                        rotated.push(orderVariant[(j + shift) % vertexCount]);
+                    }
+
+                    // CHECK IF IT MATCHES EVERY USER POSITION
+                    const match = rotated.every((v, idx) =>
+                        Math.hypot(v.x - block[idx].x, v.y - block[idx].y) <= HIT_DIST
+                    );
+
+                    // IF MATCH, TRUE AND BREAK OUT OF LOOP
+                    if (match) {
+                        console.log('order match');
+                        orderedOk = true;
+                        break;
+                    }
+                }
+                // IF THERES IS A MATCH BREAK OUT 
+                if (orderedOk) {
+                    console.log('next');
+                    break;
+                }
             }
-
-            // CHECK IF IT MATCHES USER POSITION
-            // DISTANCE FORMULA
-            const match = rotated.every((v, j) =>
-                Math.hypot(v.x - block[j].x, v.y - block[j].y) <= HIT_DIST
-            );
-
-            // IF MATCH, TRUE AND BREAK OUT OF LOOP
-            if (match) {
-                orderedOk = true;
-                break;
-            }
+            if (orderedOk) break;
         }
-        // IF THERES IS A MATCH BREAK OUT 
-        if (orderedOk) break;
+        // console.log('4+ players – running order check', lastCount);
     }
-
+    console.log('proceed')
+    
+    // 3. SEND SUCCESS
     // IF ALL CONDITIONS IS MET
     if (orderedOk && !shapeSolvedThisRound) {
         // MARK ROUND DONE
@@ -478,13 +531,13 @@ function checkConstellation() {
         }, breakTime * 1000);
         
         console.log('success', {
-        //     order: vertexMatchOrder,
-        //     count: lastCount,
-        //     myth: myth,
-        //     time: breakTime
+            // order: vertexMatchOrder,
+            // count: lastCount,
+            // myth: myth,
+            // time: breakTime
         } );
     } else {
-        console.log('no success');
+        console.log('no success', orderedOk, shapeSolvedThisRound);
     }
 }
 
@@ -506,11 +559,18 @@ function startShapeTimer() {
     // CLEAR PREVIOUS TIME
     if (shapeTimer) clearTimeout(shapeTimer);
 
+    // TIME FOR EACH SHAPE BASED ON NUMBER OF USERS
+    if (lastCount > 3){
+        SHAPE_TIME_LIMIT = 30 + (lastCount - 3) * 5;
+    } else {
+        SHAPE_TIME_LIMIT = 15;
+    }
+
     // SET NEW END TIME
     shapeEndTime = Date.now() + SHAPE_TIME_LIMIT * 1000;
 
     // SEND TIMER TO CALL CLIENTS
-    io.emit('shapeTimer', { timeLeft: SHAPE_TIME_LIMIT });
+    io.emit('shapeTimer', { timeLeft: SHAPE_TIME_LIMIT});
 
     // START COUNTDOWN
     shapeTimer = setTimeout(() => {
