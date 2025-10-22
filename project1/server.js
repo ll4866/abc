@@ -453,7 +453,7 @@ function checkConstellation() {
     }
 
     // IF ALL CONDITIONS IS MET
-    if (orderedOk && !shapeSolvedThisRound && count > 1) {
+    if (orderedOk && !shapeSolvedThisRound) {
         // MARK ROUND DONE
         shapeSolvedThisRound = true;
 
@@ -477,14 +477,14 @@ function checkConstellation() {
             // console.log('reset');
         }, breakTime * 1000);
         
-        /* console.log('success', {
-            order: vertexMatchOrder,
-            count: lastCount,
-            myth: myth,
-            time: breakTime
-        } );*/
+        console.log('success', {
+        //     order: vertexMatchOrder,
+        //     count: lastCount,
+        //     myth: myth,
+        //     time: breakTime
+        } );
     } else {
-        // console.log('no success');
+        console.log('no success');
     }
 }
 
