@@ -481,18 +481,18 @@ function checkConstellation() {
         
                 // COMPARE EACH VERTEX TO THE USER CURRENTLY ON IT
                 const match = rotated.every((v, idx) => {
-                    // find user on this vertex
+                    // FIND USER IN VERTEX
                     const userId = claimedVertices[idx];
 
-                    // vertex not claimed, fails
+                    // VERTEX CLAIMED?
                     if (!userId) return false; 
                     const pos = userPos[userId];
 
-                    // calculate distance between user and vertex
+                    // DISTANCE
                     const d = Math.hypot(v.x - pos.x, v.y - pos.y);
                     console.log('Comparing vertex', idx, 'distance', d);
 
-                    // true if within hit distance
+                    // IF TURE RETURN
                     return d <= HIT_DIST;
                 });
                 
