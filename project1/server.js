@@ -401,9 +401,8 @@ function rebuildShape(count) {
 
 function checkConstellation() {
     const users = Object.entries(userPos)
-                   .map(([id, pos]) => ({ id, ...pos }))
-                   .sort((a, b) => a.id.localeCompare(b.id));
-    const userArr = users.sort((a, b) => a.id.localeCompare(b.id));
+        .map(([id, pos]) => ({ id, ...pos }))
+        .sort((a, b) => a.id.localeCompare(b.id))
 
 
     // 1. MATCH USERS TO VETICES THEY CATCH
@@ -423,8 +422,13 @@ function checkConstellation() {
             if (!claimedVertices[i]) {
 
                 // IF USER’S POSITION IS WITHIN THE HIT DISTANCE OF A VERTEX
-                const v = shapeVertexes[i];                
-                if (Math.hypot(v.x - pos.x, v.y - pos.y) <= HIT_DIST) {
+                const v = shapeVertexes[i];   
+                
+                 // SCALE DISTANCE TO PIXELS
+                 const dx = (v.x - pos.x) * minW;
+                 const dy = (v.y - pos.y) * minH;
+
+                if (Math.hypot(dx, dy) <= HIT_DIST) {
                     
                     // ADD THIS USER TO THE CLAIM ORDER LIST
                     vertexMatchOrder.push(id);
@@ -461,6 +465,7 @@ function checkConstellation() {
         // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
         for (let start = 0; start <= lastCount - vertexCount; start++) {
             // COPY CURRENT GROUP
+            const userArr = vertexMatchOrder.map(id => ({ id, ...userPos[id] })); // ⚡ define array of users with positions
             const block = userArr.slice(start, start + vertexCount);
 
             // TRY BOTH CLOCKWISE AND COUNTERCLOCKWISE VERSIONS
@@ -483,9 +488,12 @@ function checkConstellation() {
                     }
 
                     // CHECK IF IT MATCHES EVERY USER POSITION
-                    const match = rotated.every((v, idx) =>
-                        Math.hypot(v.x - block[idx].x, v.y - block[idx].y) <= HIT_DIST
-                    );
+                    // SCALE DISTANCE TO PIXELS IN ORDER CHECK TOO
+                    const match = rotated.every((v, idx) => {
+                        const dx = (v.x - block[idx].x) * minW;
+                        const dy = (v.y - block[idx].y) * minH;
+                        return Math.hypot(dx, dy) <= HIT_DIST;
+                    });
 
                     // IF MATCH, TRUE AND BREAK OUT OF LOOP
                     if (match) {

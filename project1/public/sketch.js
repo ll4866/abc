@@ -278,7 +278,11 @@ function draw() {
     }
 
     // SENDING TO SERVER CLIENT'S MOVEMENT
-    socket.emit('move', {id: myID, x:myX, y:myY});
+    socket.emit('move', {
+        id: myID,
+        x: myX / width,
+        y: myY / height
+    });
     
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
@@ -547,17 +551,20 @@ socket.on('update', function(data) {
     // PREVENT UNDEFINED CLIENT
     if (data.id !== undefined) {
         // SAVE ALL CLIENTS
+        const posX = data.x * width;
+        const posY = data.y * height;
+
         allPOS[data.id] = { 
-            x: data.x, 
-            y: data.y 
+            x: posX, 
+            y: posY 
         };
         // console.log('ℹ️ All user position data:', allPOS);
 
         // SAVE ALL OTHER CLIENTS
         if(data.id !== myID){
             othersPOS[data.id] = {
-                x: data.x, 
-                y: data.y 
+                x: posX, 
+                y: posY
             }
         }
         // console.log('ℹ️ Other user position data', othersPOS);
