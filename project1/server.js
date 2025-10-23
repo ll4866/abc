@@ -75,7 +75,7 @@ const mythGrammar = tracery.createGrammar({
   
     intro: [
       'Shaped like a #mood# #object#, this constellation lies between #adjacent# and #adjacent#.',
-      'Constellation #num# forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
+      'It forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
       'High above, the stars arrange themselves into the likeness of a #mood# #object#, known to sailors and dreamers alike.'
     ],
   
@@ -459,6 +459,7 @@ function checkConstellation() {
         for (let start = 0; start <= lastCount - vertexCount; start++) {
             // COPY CURRENT GROUP
             const block = userArr.slice(start, start + vertexCount);
+            console.log(`Checking block starting at index ${start}:`, block);
 
             // TRY BOTH CLOCKWISE AND COUNTERCLOCKWISE VERSIONS
             const vertexOrders = [
@@ -467,6 +468,7 @@ function checkConstellation() {
             ];
 
             for (const orderVariant of vertexOrders) {
+                console.log('Checking order variant:', orderVariant.map(v => ({x:v.x, y:v.y})));
 
                 // GENERATE ALL CYCIC RATIONS OF "shapeVertexes"
                 for (let shift = 0; shift < vertexCount; shift++) {
@@ -478,11 +480,13 @@ function checkConstellation() {
                         // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
                         rotated.push(orderVariant[(j + shift) % vertexCount]);
                     }
+                    console.log(`  Shift ${shift}: rotated vertices:`, rotated.map(v => ({x:v.x, y:v.y})));
 
-                    // CHECK IF IT MATCHES EVERY USER POSITION
-                    const match = rotated.every((v, idx) =>
-                        Math.hypot(v.x - block[idx].x, v.y - block[idx].y) <= HIT_DIST
-                    );
+                    const match = rotated.every((v, idx) => {
+                        const d = Math.hypot(v.x - block[idx].x, v.y - block[idx].y);
+                        console.log(`    Comparing vertex ${idx}: distance ${d}`);
+                        return d <= HIT_DIST;
+                    });
 
                     // IF MATCH, TRUE AND BREAK OUT OF LOOP
                     if (match) {
