@@ -156,6 +156,7 @@ io.on('connection', function(socket){
             // STORE NEW COUNT
             lastCount = data.c;
 
+            /*
             // IF CANVAS DOES NOT MATCH
             if (data.w < minW || data.h < minH) {
                 // RECORDING SMALLEST CANVAS
@@ -168,6 +169,7 @@ io.on('connection', function(socket){
 
                 // console.log('size', minW, minH);
             }
+            */
 
             // RESHAPE
             rebuildShape(data.c);
@@ -385,8 +387,8 @@ function rebuildShape(count) {
 
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
-        const x = Math.random() * (maxX - minX) + minX;
-        const y = Math.random() * (maxY - minY) + minY;
+        const x = Math.random();
+        const y = Math.random();
         shapeVertexes.push({ x, y });
     }
 

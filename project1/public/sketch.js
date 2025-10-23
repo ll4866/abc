@@ -374,19 +374,28 @@ function drawConnections(data) {
     strokeWeight(1.5);
     noFill();
 
+    // Convert normalized coords if shapeVertexes
+    let points = data;
+    if (data === shapeVertexes) {
+        points = data.map(p => ({
+            x: p.x * width,
+            y: p.y * height
+        }));
+    }
+
     // DRAWING LINE CONNECTING 
-    let prev = data[0];
-    for (let i = 1; i < data.length; i++) {
-        const curr = data[i];
+    let prev = points[0];
+    for (let i = 1; i < points.length; i++) {
+        const curr = points[i];
         line(prev.x, prev.y, curr.x, curr.y);
         prev = curr;
     }
-    const first = data[0];
+    const first = points[0];
     line(prev.x, prev.y, first.x, first.y);
     
     // DRAWING VERTEXES
     if(data === shapeVertexes){
-        for (const p of data) {
+        for (const p of points) {
             for (let i = 1; i < 3; i++){
                 drawStar(p.x, p.y, 3 * i, 6 * i, 5);
             }
