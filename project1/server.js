@@ -401,7 +401,7 @@ function checkConstellation() {
     const users = Object.entries(userPos)
         .map(([id, pos]) => ({ id, ...pos }))
         .sort((a, b) => a.id.localeCompare(b.id))   
-
+    const userArr = users.sort((a, b) => a.id.localeCompare(b.id));
 
     // 1. MATCH USERS TO VETICES THEY CATCH
     // TRACK WHICH USERS HAVE CLAIMED WHICH VERTICES
@@ -429,7 +429,7 @@ function checkConstellation() {
                     // MARK THIS VERTEX AS CLAIMED BY THE USER
                     claimedVertices[i] = id;
                     
-                    // console.log(`Vertex ${i} claimed by ${id}`);
+                    console.log(`Vertex ${i} claimed by ${id}`);
                     break;
                 }
             }
@@ -536,6 +536,9 @@ function checkConstellation() {
             // time: breakTime
         } );
     } else {
+        if (lastCount < 4) {
+            console.log(lastCount);
+        }
         console.log('no success', orderedOk, shapeSolvedThisRound);
     }
 }
