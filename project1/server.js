@@ -75,7 +75,7 @@ const mythGrammar = tracery.createGrammar({
   
     intro: [
       'Shaped like a #mood# #object#, this constellation lies between #adjacent# and #adjacent#.',
-      'It forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
+      'Constellation #num# forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
       'High above, the stars arrange themselves into the likeness of a #mood# #object#, known to sailors and dreamers alike.'
     ],
   
@@ -156,7 +156,6 @@ io.on('connection', function(socket){
             // STORE NEW COUNT
             lastCount = data.c;
 
-            /*
             // IF CANVAS DOES NOT MATCH
             if (data.w < minW || data.h < minH) {
                 // RECORDING SMALLEST CANVAS
@@ -169,7 +168,6 @@ io.on('connection', function(socket){
 
                 // console.log('size', minW, minH);
             }
-            */
 
             // RESHAPE
             rebuildShape(data.c);
@@ -387,8 +385,8 @@ function rebuildShape(count) {
 
     // CREATE SHAPE
     for (let i = 0; i < count; i++) {
-        const x = Math.random();
-        const y = Math.random();
+        const x = Math.random() * (maxX - minX) + minX;
+        const y = Math.random() * (maxY - minY) + minY;
         shapeVertexes.push({ x, y });
     }
 
@@ -402,7 +400,7 @@ function rebuildShape(count) {
 function checkConstellation() {
     const users = Object.entries(userPos)
         .map(([id, pos]) => ({ id, ...pos }))
-        .sort((a, b) => a.id.localeCompare(b.id))
+        .sort((a, b) => a.id.localeCompare(b.id))   
 
 
     // 1. MATCH USERS TO VETICES THEY CATCH
@@ -422,13 +420,8 @@ function checkConstellation() {
             if (!claimedVertices[i]) {
 
                 // IF USER’S POSITION IS WITHIN THE HIT DISTANCE OF A VERTEX
-                const v = shapeVertexes[i];   
-                
-                 // SCALE DISTANCE TO PIXELS
-                 const dx = (v.x - pos.x) * minW;
-                 const dy = (v.y - pos.y) * minH;
-
-                if (Math.hypot(dx, dy) <= HIT_DIST) {
+                const v = shapeVertexes[i];                
+                if (Math.hypot(v.x - pos.x, v.y - pos.y) <= HIT_DIST) {
                     
                     // ADD THIS USER TO THE CLAIM ORDER LIST
                     vertexMatchOrder.push(id);
@@ -449,7 +442,7 @@ function checkConstellation() {
 
     // CHECK IF ALL VERTICES HAVE BEEN CLAIMED AND MORE THAN 1 PLAYER TO PROCEED
     if (lastCount <= 1 || !allClaimed) return;
-    console.log('all claimed', lastCount);
+    // console.log('all claimed', lastCount);
     
     // IF THERE IS LESS THAN 3 PLAYERS ORDER IS OK, ELSE CHECK ORDER
     // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
@@ -458,14 +451,13 @@ function checkConstellation() {
     let orderedOk = false;
     if (lastCount < 4) {
         orderedOk = true;
-        console.log('3 or fewer players – order auto-OK', lastCount);
+        // console.log('3 or fewer players – order auto-OK', lastCount);
     } else {
         // SLIDE A WINDOW
         // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
         // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
         for (let start = 0; start <= lastCount - vertexCount; start++) {
             // COPY CURRENT GROUP
-            const userArr = vertexMatchOrder.map(id => ({ id, ...userPos[id] })); // ⚡ define array of users with positions
             const block = userArr.slice(start, start + vertexCount);
 
             // TRY BOTH CLOCKWISE AND COUNTERCLOCKWISE VERSIONS
@@ -488,12 +480,9 @@ function checkConstellation() {
                     }
 
                     // CHECK IF IT MATCHES EVERY USER POSITION
-                    // SCALE DISTANCE TO PIXELS IN ORDER CHECK TOO
-                    const match = rotated.every((v, idx) => {
-                        const dx = (v.x - block[idx].x) * minW;
-                        const dy = (v.y - block[idx].y) * minH;
-                        return Math.hypot(dx, dy) <= HIT_DIST;
-                    });
+                    const match = rotated.every((v, idx) =>
+                        Math.hypot(v.x - block[idx].x, v.y - block[idx].y) <= HIT_DIST
+                    );
 
                     // IF MATCH, TRUE AND BREAK OUT OF LOOP
                     if (match) {

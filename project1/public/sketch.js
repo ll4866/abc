@@ -278,11 +278,7 @@ function draw() {
     }
 
     // SENDING TO SERVER CLIENT'S MOVEMENT
-    socket.emit('move', {
-        id: myID,
-        x: myX / width,
-        y: myY / height
-    });
+    socket.emit('move', {id: myID, x:myX, y:myY});
     
     /*----------------------------------------------*/
     /* --- DRAWING OF USERS --- */
@@ -378,28 +374,19 @@ function drawConnections(data) {
     strokeWeight(1.5);
     noFill();
 
-    // Convert normalized coords if shapeVertexes
-    let points = data;
-    if (data === shapeVertexes) {
-        points = data.map(p => ({
-            x: p.x * width,
-            y: p.y * height
-        }));
-    }
-
     // DRAWING LINE CONNECTING 
-    let prev = points[0];
-    for (let i = 1; i < points.length; i++) {
-        const curr = points[i];
+    let prev = data[0];
+    for (let i = 1; i < data.length; i++) {
+        const curr = data[i];
         line(prev.x, prev.y, curr.x, curr.y);
         prev = curr;
     }
-    const first = points[0];
+    const first = data[0];
     line(prev.x, prev.y, first.x, first.y);
     
     // DRAWING VERTEXES
     if(data === shapeVertexes){
-        for (const p of points) {
+        for (const p of data) {
             for (let i = 1; i < 3; i++){
                 drawStar(p.x, p.y, 3 * i, 6 * i, 5);
             }
@@ -551,20 +538,17 @@ socket.on('update', function(data) {
     // PREVENT UNDEFINED CLIENT
     if (data.id !== undefined) {
         // SAVE ALL CLIENTS
-        const posX = data.x * width;
-        const posY = data.y * height;
-
         allPOS[data.id] = { 
-            x: posX, 
-            y: posY 
+            x: data.x, 
+            y: data.y 
         };
         // console.log('ℹ️ All user position data:', allPOS);
 
         // SAVE ALL OTHER CLIENTS
         if(data.id !== myID){
             othersPOS[data.id] = {
-                x: posX, 
-                y: posY
+                x: data.x, 
+                y: data.y 
             }
         }
         // console.log('ℹ️ Other user position data', othersPOS);
