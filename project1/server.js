@@ -75,7 +75,7 @@ const mythGrammar = tracery.createGrammar({
   
     intro: [
       'Shaped like a #mood# #object#, this constellation lies between #adjacent# and #adjacent#.',
-      'Constellation #num# forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
+      'It forms the outline of a #mood# #object#, its pattern gleaming softly in the night.',
       'High above, the stars arrange themselves into the likeness of a #mood# #object#, known to sailors and dreamers alike.'
     ],
   
@@ -443,7 +443,7 @@ function checkConstellation() {
 
     // CHECK IF ALL VERTICES HAVE BEEN CLAIMED AND MORE THAN 1 PLAYER TO PROCEED
     if (lastCount <= 1 || !allClaimed) return;
-    // console.log('all claimed', lastCount);
+    console.log('all claimed', lastCount);
     
     // IF THERE IS LESS THAN 3 PLAYERS ORDER IS OK, ELSE CHECK ORDER
     // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
@@ -452,7 +452,7 @@ function checkConstellation() {
     let orderedOk = false;
     if (lastCount < 4) {
         orderedOk = true;
-        // console.log('3 or fewer players – order auto-OK', lastCount);
+        console.log('3 or fewer players – order auto-OK', lastCount);
     } else {
         // SLIDE A WINDOW
         // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
@@ -500,7 +500,7 @@ function checkConstellation() {
             }
             if (orderedOk) break;
         }
-        // console.log('4+ players – running order check', lastCount);
+        console.log('4+ players – running order check', lastCount);
     }
     console.log('proceed')
     
