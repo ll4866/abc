@@ -411,8 +411,19 @@ function checkConstellation() {
     // LOOP THROUGH EACH ACTIVE USER AND THEIR POSITION
     for (const [id, pos] of Object.entries(userPos)) {
 
-        // SKIP USERS WHO HAVE ALREADY CLAIMED A VERTEX
-        if (vertexMatchOrder.includes(id)) continue;
+        // CHECK IF USER HAS ALREADY CLAIMED ANY VERTEX
+        for (let i = 0; i < shapeVertexes.length; i++) {
+            if (claimedVertices[i] === id) {
+                const v = shapeVertexes[i];
+                const d = Math.hypot(v.x - pos.x, v.y - pos.y);
+                if (d > HIT_DIST) {
+                    // User moved away, unclaim vertex
+                    claimedVertices[i] = null;
+                    vertexMatchOrder = vertexMatchOrder.filter(u => u !== id);
+                    console.log('Vertex ' + i + ' unclaimed by ' + id + ' (moved away)');
+                }
+            }
+        }
 
         // ELSE, CHECK IF THIS USER MATCHES ANY UNCLAIMED VERTEX
         for (let i = 0; i < shapeVertexes.length; i++) {
@@ -429,7 +440,7 @@ function checkConstellation() {
                     // MARK THIS VERTEX AS CLAIMED BY THE USER
                     claimedVertices[i] = id;
                     
-                    console.log(`Vertex ${i} claimed by ${id}`);
+                    console.log('Vertex ' + i + ' claimed by ' + id);
                     break;
                 }
             }
@@ -442,7 +453,7 @@ function checkConstellation() {
 
     // CHECK IF ALL VERTICES HAVE BEEN CLAIMED AND MORE THAN 1 PLAYER TO PROCEED
     if (lastCount <= 1 || !allClaimed) return;
-    // console.log('all claimed', lastCount);
+    console.log('all claimed', lastCount);
     
     // IF THERE IS LESS THAN 3 PLAYERS ORDER IS OK, ELSE CHECK ORDER
     // CHECK IF USERS ARE ARRANGED IN THE CORRECT ORDER
@@ -480,7 +491,7 @@ function checkConstellation() {
                         // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
                         rotated.push(orderVariant[(j + shift) % vertexCount]);
                     }
-                    console.log(`  Shift ${shift}: rotated vertices:`, rotated.map(v => ({x:v.x, y:v.y})));
+                    // console.log(`  Shift: rotated vertices:`, rotated.map(v => ({x:v.x, y:v.y})));
 
                     const match = rotated.every((v, idx) => {
                         const d = Math.hypot(v.x - block[idx].x, v.y - block[idx].y);
