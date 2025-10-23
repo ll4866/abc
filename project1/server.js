@@ -464,57 +464,47 @@ function checkConstellation() {
         orderedOk = true;
         // console.log('3 or fewer players – order auto-OK', lastCount);
     } else {
-        // SLIDE A WINDOW
-        // (e.g. if count = 4 and userArray = [u1, u2, u3, u4]
-        // check [u1,u2,u3,u4], [u2,u3,u4,u5], etc.)
-        for (let start = 0; start <= lastCount - vertexCount; start++) {
-            // COPY CURRENT GROUP
-            const block = userArr.slice(start, start + vertexCount);
-            console.log(`Checking block starting at index ${start}:`, block);
+        // PREPARE THE SHAPE VERTEX ORDERS TO TEST
+        const block = vertexMatchOrder.map(id => userPos[id]);
+        const vertexOrders = [
+            shapeVertexes,
+            [...shapeVertexes].reverse()
+        ];
 
-            // TRY BOTH CLOCKWISE AND COUNTERCLOCKWISE VERSIONS
-            const vertexOrders = [
-                shapeVertexes,
-                [...shapeVertexes].reverse()
-            ];
-
-            for (const orderVariant of vertexOrders) {
-                console.log('Checking order variant:', orderVariant.map(v => ({x:v.x, y:v.y})));
-
-                // GENERATE ALL CYCIC RATIONS OF "shapeVertexes"
-                for (let shift = 0; shift < vertexCount; shift++) {
-                    
-                    // CREATES 1 ROATION
-                    const rotated = [];
-                    for (let j = 0; j < vertexCount; j++) {
-                        // SHIFT 1 TO THE RIGHT, BUT ADAPT TO COUNT
-                        // (e.g. 0,1,2,3 -> 1,2,3,4 -> 1,2,3,0)
-                        rotated.push(orderVariant[(j + shift) % vertexCount]);
-                    }
-                    // console.log(`  Shift: rotated vertices:`, rotated.map(v => ({x:v.x, y:v.y})));
-
-                    const match = rotated.every((v, idx) => {
-                        const d = Math.hypot(v.x - block[idx].x, v.y - block[idx].y);
-                        console.log(`    Comparing vertex ${idx}: distance ${d}`);
-                        return d <= HIT_DIST;
-                    });
-
-                    // IF MATCH, TRUE AND BREAK OUT OF LOOP
-                    if (match) {
-                        console.log('order match');
-                        orderedOk = true;
-                        break;
-                    }
+        // TRY ROTATIONS TO ACCOUNT FOR ANY STARTING POINT
+        for (const orderVariant of vertexOrders) {
+            for (let shift = 0; shift < shapeVertexes.length; shift++) {
+                const rotated = [];
+                for (let j = 0; j < shapeVertexes.length; j++) {
+                    rotated.push(orderVariant[(j + shift) % shapeVertexes.length]);
                 }
-                // IF THERES IS A MATCH BREAK OUT 
-                if (orderedOk) {
-                    console.log('next');
+        
+                // COMPARE EACH VERTEX TO THE USER CURRENTLY ON IT
+                const match = rotated.every((v, idx) => {
+                    // find user on this vertex
+                    const userId = claimedVertices[idx];
+
+                    // vertex not claimed, fails
+                    if (!userId) return false; 
+                    const pos = userPos[userId];
+
+                    // calculate distance between user and vertex
+                    const d = Math.hypot(v.x - pos.x, v.y - pos.y);
+                    console.log('Comparing vertex', idx, 'distance', d);
+
+                    // true if within hit distance
+                    return d <= HIT_DIST;
+                });
+                
+                // IF A MATCH IS FOUND, STOP CHECKING
+                if (match) {
+                    console.log('order match');
+                    orderedOk = true;
                     break;
                 }
             }
             if (orderedOk) break;
         }
-        console.log('4+ players – running order check', lastCount);
     }
     console.log('proceed')
     
