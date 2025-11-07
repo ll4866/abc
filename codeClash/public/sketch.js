@@ -1,0 +1,422 @@
+// Map Setup
+let mappa = new Mappa('Leaflet'); // map library
+let myMap;
+let canvas;
+let currentLongitude  = 0; // global variables will be updated as we get GPS data
+let currentLatitude   = 0; // global variables will be updated as we get GPS data
+let mapInit = false; // we only do map stuff once mapInit is true (see in draw)
+let me;                     // point object showing our own location
+let otherPlayers = {};
+
+let socket = io();
+
+// setup default data of location and zoom (will change once given data)
+let mappa_options = {
+  lat: 0,
+  lng: 0,
+  zoom: 16,
+
+  // there are differnt suppliers and styles of maps available
+  // options for map styles:
+    // style: "https://b.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png"
+    // style: "https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}",
+  style: 'https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=6&x={x}&y={y}&z={z}',
+}
+
+/*----------------------------------------------*/
+// Game Setup
+let myName = '';
+let codeSize = 8;
+let randomCode; 
+
+// Zones
+let zones = [];
+let zoneNumbers = [];
+let gridRows = 4;
+let gridCols = 4;
+let zoneSize = 0.0016;
+
+function setup() {
+  canvas = createCanvas(windowWidth, windowHeight);
+  canvas.parent("p5-canvas-container");
+  me = new PlayerPoint(currentLatitude, currentLongitude, myName, true);
+}
+
+function draw() {
+  clear();
+
+  // Initialize full screen map
+  // runs only once to init map
+  if(!mapInit && GPS_GRANTED && currentLongitude!= 0){
+    console.log("starting map");
+    mappa_options.lat = currentLatitude;
+    mappa_options.lng = currentLongitude;
+    myMap = mappa.tileMap(mappa_options); 
+    myMap.overlay(canvas);
+    myMap.onChange(updateMapContent);
+    mapInit = true;
+
+    // Show ready button
+    readyButton.style.display = 'block';
+  }
+
+  // When Map is intialized, draw users on map
+  if(mapInit){
+    // Draw the zones first
+    for (let z of zones) {
+      // Corners of the zones
+      let topLeft = myMap.latLngToPixel(z.lat + zoneSize / 2, z.lon - zoneSize / 2);
+      let bottomRight = myMap.latLngToPixel(z.lat - zoneSize / 2, z.lon + zoneSize / 2);    
+    
+      // Calculating the x, y, w, h for rectabgle
+      let top = min(topLeft.y, bottomRight.y);
+      let left = min(topLeft.x, bottomRight.x);
+      let w = abs(bottomRight.x - topLeft.x);
+      let h = abs(bottomRight.y - topLeft.y);
+      let margin = 1;
+    
+      // Draw the zone border
+      push();
+        noFill();
+        // Color change depending on whether player is inside zone
+        if (isInside(currentLatitude, currentLongitude, z)) {
+          stroke(0, 0, 255);
+          fill(0,0,255,50);
+        } else {
+          stroke(0);
+          fill(0,25);
+        }
+        strokeWeight(2);
+        rect(left + margin, top + margin, w - margin * 2, h - margin * 2);
+      pop();
+    
+      // Drawing zone number if it is inside zone
+      if (isInside(currentLatitude, currentLongitude, z)) {
+        push();
+          fill(255,100);
+          circle(left + w / 2, top + h / 2, 35);
+          fill(0);
+          noStroke();
+          textSize(25);
+          textAlign(CENTER, CENTER);
+          text(z.number, left + w / 2, top + h / 2);
+        pop();
+      }    
+    }
+    
+    // only update and draw our point if we actually have data
+    me.update();
+    me.display();
+    // console.log(me)
+
+    // Draw all other players
+    for(let user in otherPlayers){
+      otherPlayers[user].update();
+      otherPlayers[user].display();
+    }
+  }
+
+  // Display the random code at top center
+  if (randomCode) {
+    let codeStr = randomCode.join(", ");
+    let displayStr = "YOUR CODE: " + codeStr;
+
+    push();
+      textSize(16);
+      textAlign(CENTER, TOP);
+      let paddingX = 15;
+      let paddingY = 10;
+
+      let txtWidth = textWidth(displayStr) + paddingX * 2;
+      let txtHeight = textAscent() + textDescent() + paddingY * 2;
+
+      // Draw rectangle
+      fill(255, 220);
+      noStroke();
+      rectMode(CENTER);
+      rect(width / 2, txtHeight / 2 + 5, txtWidth, txtHeight, 8);
+
+      // Draw the text
+      fill(0);
+      noStroke();
+      text(displayStr, width / 2, 5 + paddingY);
+    pop();
+  }
+}
+
+/*----------------------------------------------*/
+// P5 touch events: (https://p5js.org/reference/#Touch)
+function touchStarted() {
+  if(mapInit){
+    let pos = myMap.pixelToLatLng(touches[0].x, touches[0].y);
+    console.log("TOUCHED", pos);
+  }else{
+    console.log("TOUCHED", touches);
+  }
+}
+
+function touchMoved() {
+}
+
+function touchEnded() {
+}
+
+/*----------------------------------------------*/
+// GPS Maping
+
+// Adjusting window size to match map
+function windowResized(){
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+// Calls for GPS whenever location changes
+function handleNewPosition(pos){
+  // fix location for chinese map tiles
+  let lonlat = fixForChineseMap(pos);
+  currentLongitude = lonlat[0];
+  currentLatitude = lonlat[1];
+  console.log(currentLatitude, currentLongitude);
+
+  // sending the location to the server to send to other users
+  let locForServer = {
+    lat: currentLatitude, 
+    lon: currentLongitude,
+    username: myName
+  }
+  socket.emit('locationFromClient', locForServer);
+
+  // if map already displayed, update the point
+  if(mapInit){
+    updateMapContent();
+  }
+}
+
+function generateRandomCode() {
+  let code = [];
+  for (let i = 0; i < codeSize; i++) {
+    code.push(Math.floor(Math.random() * 16)); // 0 to 15 inclusive
+  }
+  return code;
+}
+/*----------------------------------------------*/
+// Sockets
+
+// Listening for the location of other users
+socket.on('locationFromServer', function(data){
+  console.log('data from someone', data);
+
+  // if it is an existing player from the list it has
+  if(otherPlayers[data.user]){
+    // Update existing player location
+    otherPlayers[data.user].lat = data.lat;
+    otherPlayers[data.user].lon = data.lon;
+  } else {
+    // given it is a New player (not from its leaste), create object
+    otherPlayers[data.user] = new PlayerPoint(data.lat, data.lon, data.user);
+  }
+})
+
+// Listening for the user that left
+socket.on('userThatLeft', function(username) {
+  console.log(username + " left");
+
+  // remove from your otherPlayers object
+  delete otherPlayers[username];
+});
+
+// Listening for when to start the game
+socket.on('startGame', function(data) {
+  // Draw the Grid
+  createSquare(data.centerLat, data.centerLon, data.numbers);
+
+  // Generate the random 8-number code (0-15)
+  randomCode = [];
+  for (let i = 0; i < codeSize; i++) {
+    randomCode.push(Math.floor(Math.random() * 16));
+  }
+
+  console.log("Received center and numbers:", data.centerLat, data.centerLon, data.numbers);
+  console.log("Generated code:", randomCode);
+});
+/*----------------------------------------------*/
+// Buttons and Infos
+
+// Entering Username:
+const nameOverlay = document.getElementById('nameOverlay');
+const nameInput = document.getElementById('nameInput');
+const nameSubmit = document.getElementById('nameSubmit');
+
+// Ways to submit:
+// clicking on screen button to submit
+nameSubmit.addEventListener('click', function() {
+    sendName()
+});
+
+// pressing the "enter" key to submit
+nameSubmit.addEventListener('keyup', function(e){ 
+    if (e.key === 'Enter') {
+        sendName(); 
+    }
+});
+
+// When name is submited it does:
+function sendName() {
+  // Clear what was inputed in textbox
+  const name = nameInput.value.trim();
+
+  // IGNORE this submission given nothing was entered in box
+  if (!name) return;
+
+  // SAVE name into global variable
+  myName = name; 
+
+  // Erase the naming display
+  nameOverlay.style.display = 'none';
+
+  // request GPS
+  requestGPS();
+
+  // Update name into point
+  me = new PlayerPoint(currentLatitude, currentLongitude, myName, true);
+}
+
+// Ready Button
+const readyButton = document.getElementById('readyButton');
+
+readyButton.addEventListener('click', () => {
+  // Send ready event to server
+  socket.emit('ready', { username: myName });
+
+  // Hide button after clicked
+  readyButton.style.display = 'none';
+});
+
+/*----------------------------------------------*/
+// Convert GPS coordinates to on-screen position
+function updateMapContent(){
+  let myPosOnCanvas = myMap.latLngToPixel(currentLatitude, currentLongitude)
+  me.goalX = myPosOnCanvas.x;
+  me.goalY = myPosOnCanvas.y;
+
+  // Update ALL other players
+  for (let user in otherPlayers) {
+    let pos = myMap.latLngToPixel(otherPlayers[user].lat, otherPlayers[user].lon);
+    otherPlayers[user].goalX = pos.x;
+    otherPlayers[user].goalY = pos.y;
+  }
+}
+
+// Drawing Grid based on data
+function createSquare(centerLat, centerLon, numbers) {
+  // clear old zones
+  zones = [];
+
+  // Save numbers
+  zoneNumbers = numbers;
+
+  // Draw grid based on row and collums
+  for (let r = 0; r < gridRows; r++) {
+    for (let c = 0; c < gridCols; c++) {
+      // calculation: the center of the current zone is found by
+      // center + zone size * (what order of right/left - 0.5 for center of rect)
+      // same for bottom/top
+      let lat = centerLat + zoneSize * (gridRows/2 - r - 0.5);
+      let lon = centerLon + zoneSize * (c - gridCols/2 + 0.5);
+
+      // convert the grid into linear
+      let numberIndex = r * gridCols + c;
+      // store hidden number to each zone
+      zones.push({
+        lat,
+        lon,
+        number: zoneNumbers[numberIndex]
+      });
+    }
+  }
+}
+
+// determine whehter it is inside the zone or not
+function isInside(lat, lon, zone) {
+  // the max and min of x and y based on zone
+  let halfSize = zoneSize / 2;
+  let squareNorth = zone.lat + halfSize;
+  let squareSouth = zone.lat - halfSize;
+  let squareEast = zone.lon + halfSize;
+  let squareWest = zone.lon - halfSize;
+
+  // if it fits inside zone return that it is true els no
+  if (lat < squareNorth && lat > squareSouth && lon < squareEast && lon > squareWest) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+/*----------------------------------------------*/
+// Drawing Player Point Location
+class PlayerPoint {
+  constructor(lat, lon, username, isMe = false) {
+    this.lat = lat;
+    this.lon = lon;
+    this.username = username;
+    this.isMe = isMe;
+    this.x = 0;
+    this.y = 0;
+    this.goalX = 0;
+    this.goalY = 0;
+    this.size = 14;
+
+    // Colors differ by type
+    if (this.isMe) {
+      // more of a greenish color for my own location point
+      this.col = color(170, 240, 190);            // circle color for me
+      this.strokeCol = "pink";                    // circle outline for me
+      this.boxCol = color(210, 255, 220, 230);    // name box for me
+      this.textCol = color(40, 100, 60);          // name text for me
+    } else {
+      // more of a alarming red color for other players point
+      this.col = color(240, 170, 170);            // circle color for others
+      this.strokeCol = "red";                     // circle outline for others
+      this.boxCol = color(255, 220, 220, 230);    // name box for others
+      this.textCol = color(120, 20, 20);          // name text for others
+    }
+  }
+
+  update() {
+    this.x = lerp(this.x, this.goalX, 0.2);
+    this.y = lerp(this.y, this.goalY, 0.2);
+  }
+
+  display() {
+    push();
+      translate(this.x, this.y);
+
+      // Pulsing circle
+      fill(this.col);
+      stroke(this.strokeCol);
+      strokeWeight(3);
+      let dia = this.size + sin(frameCount * 0.1);
+      circle(0, 0, dia);
+
+      // Username bubble
+      if (this.username) {
+        noStroke();
+        textSize(14);
+        textAlign(CENTER, CENTER);
+        let paddingX = 8;
+        let paddingY = 4;
+        let txtWidth = textWidth(this.username) + paddingX * 2;
+        let txtHeight = textAscent() + textDescent() + paddingY * 2;
+        let rectY = -this.size - txtHeight / 2 - 10;
+
+        // name bubble
+        fill(this.boxCol);
+        rectMode(CENTER);
+        rect(0, rectY, txtWidth, txtHeight, 8);
+        // name
+        fill(this.textCol);
+        text(this.username, 0, rectY + 1);
+      }
+    pop();
+  }
+}
