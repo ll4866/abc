@@ -57,3 +57,25 @@ body{
     z-index: 1000; /* <- make sure map is behind it !!!!! */
 }
   
+/* SUBMIT CODE Button */
+#submitCodeButton {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgb(9, 92, 9);
+    font-size: 16px;
+    cursor: pointer;
+    z-index: 1000; /* <- make sure map is behind it !!!!! */
+}
+
+#submitCodeButton:hover {
+    background-color: rgb(9, 92, 9);
+}
+
+#submitCodeButton.active {
+    background-color: rgb(255, 235, 57);
+    color: #000;
+    box-shadow: 0 0 15px rgb(255, 235, 57);
+}

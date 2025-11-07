@@ -27,7 +27,15 @@ let mappa_options = {
 // Game Setup
 let myName = '';
 let codeSize = 8;
+
+// CODE SETUP
 let randomCode; 
+let isEnteringCode = false;
+let userTapSequence = [];
+let codeFeedback = "";
+let codeFeedbackColor;
+let codeFeedbackTime = 0;
+const FEEDBACK_DURATION = 3000;
 
 // Zones
 let zones = [];
@@ -40,6 +48,7 @@ function setup() {
   canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("p5-canvas-container");
   me = new PlayerPoint(currentLatitude, currentLongitude, myName, true);
+  codeFeedbackColor = color(0);
 }
 
 function draw() {
@@ -68,7 +77,7 @@ function draw() {
       let topLeft = myMap.latLngToPixel(z.lat + zoneSize / 2, z.lon - zoneSize / 2);
       let bottomRight = myMap.latLngToPixel(z.lat - zoneSize / 2, z.lon + zoneSize / 2);    
     
-      // Calculating the x, y, w, h for rectabgle
+      // Calculating the x, y, w, h for rectangle
       let top = min(topLeft.y, bottomRight.y);
       let left = min(topLeft.x, bottomRight.x);
       let w = abs(bottomRight.x - topLeft.x);
@@ -107,7 +116,6 @@ function draw() {
     // only update and draw our point if we actually have data
     me.update();
     me.display();
-    // console.log(me)
 
     // Draw all other players
     for(let user in otherPlayers){
@@ -118,15 +126,15 @@ function draw() {
 
   // Display the random code at top center
   if (randomCode) {
-    let codeStr = randomCode.join(", ");
-    let displayStr = "YOUR CODE: " + codeStr;
-
     push();
       textSize(16);
-      textAlign(CENTER, TOP);
+      textAlign(LEFT, TOP);
       let paddingX = 15;
       let paddingY = 10;
 
+      // Calculate total width of code text for rectangle
+      let codeText = randomCode.join(", ");
+      let displayStr = "YOUR CODE: " + codeText;
       let txtWidth = textWidth(displayStr) + paddingX * 2;
       let txtHeight = textAscent() + textDescent() + paddingY * 2;
 
@@ -136,10 +144,60 @@ function draw() {
       rectMode(CENTER);
       rect(width / 2, txtHeight / 2 + 5, txtWidth, txtHeight, 8);
 
+      // Draw the text numbers individually
+      let startX = width / 2 - txtWidth / 2 + paddingX;
+      let yPos = 5 + paddingY;
+
       // Draw the text
       fill(0);
-      noStroke();
-      text(displayStr, width / 2, 5 + paddingY);
+      text("YOUR CODE: ", startX, yPos);
+      startX += textWidth("YOUR CODE: ");
+
+      // Draw each number
+      for (let i = 0; i < randomCode.length; i++) {
+        // based on number correct color change
+        if (i < userTapSequence.length) {
+          fill(0, 200, 0); 
+        } else {
+          fill(0);
+        }
+        // number text
+        text(randomCode[i], startX, yPos);
+
+        // adjust position
+        startX += textWidth(randomCode[i]);
+        if (i < randomCode.length - 1) {
+          text(", ", startX, yPos);
+          startX += textWidth(", ");
+        }
+      }
+
+      // feedback text
+      let feedbackY = txtHeight + 20;
+      if (codeFeedback && millis() - codeFeedbackTime < FEEDBACK_DURATION) {
+        push();
+          textAlign(CENTER, CENTER);
+          textSize(16);
+
+          // Calculate rectangle size
+          let feedbackPaddingX = 10;
+          let feedbackPaddingY = 6;
+          let feedbackWidth = textWidth(codeFeedback) + feedbackPaddingX * 2;
+          let feedbackHeight = textAscent() + textDescent() + feedbackPaddingY * 2;
+
+          // Draw white rectangle behind feedback
+          rectMode(CENTER);
+          fill(255, 220);
+          noStroke();
+          rect(width / 2, feedbackY + feedbackHeight / 2, feedbackWidth, feedbackHeight, 6);
+
+          // Draw feedback text centered
+          fill(codeFeedbackColor);
+          text(codeFeedback, width / 2, feedbackY + feedbackHeight / 2);
+        pop();
+      } else {
+        codeFeedback = "";
+      }
     pop();
   }
 }
@@ -149,8 +207,57 @@ function draw() {
 function touchStarted() {
   if(mapInit){
     let pos = myMap.pixelToLatLng(touches[0].x, touches[0].y);
-    console.log("TOUCHED", pos);
-  }else{
+    // console.log("TOUCHED", pos);
+
+    // only begin touching squares/zones when entering code
+    if (isEnteringCode){
+      for (let z of zones) {
+        // Check what zone it is tapping
+        if (isInside(pos.lat, pos.lng, z)) {
+          console.log("Tapped zone number:", z.number);
+
+          // Check if the tapped number is correct in sequence
+          if (z.number === randomCode[userTapSequence.length]) {
+            userTapSequence.push(z.number);
+            console.log("Correct! Sequence so far:", userTapSequence);
+
+            // Set feedback for correct tap (green)
+            codeFeedback = "Correct!";
+            codeFeedbackColor = color(0, 200, 0);
+            codeFeedbackTime = millis();            
+
+            // Check if full code is completed
+            if (userTapSequence.length === randomCode.length) {
+              console.log("Code completed! Submitting to server:", userTapSequence);
+              socket.emit('submitCode', { username: myName, code: userTapSequence });
+
+              // Reset everything
+              userTapSequence = [];
+              isEnteringCode = false;
+
+              // Remove the bright style
+              submitCodeButton.classList.remove('active');
+            }
+          } else {
+            // reset everything
+            console.log("Wrong tap! Resetting sequence.");
+            userTapSequence = [];
+            isEnteringCode = false;
+
+            // Set feedback for incorrect (red)
+            codeFeedback = "Incorrect – try again!";
+            codeFeedbackColor = color(200, 0, 0);
+            codeFeedbackTime = millis();
+
+            // Remove the bright style
+            submitCodeButton.classList.remove('active');
+          }
+
+          break;
+        }
+      }
+    }
+  } else {
     console.log("TOUCHED", touches);
   }
 }
@@ -175,7 +282,7 @@ function handleNewPosition(pos){
   let lonlat = fixForChineseMap(pos);
   currentLongitude = lonlat[0];
   currentLatitude = lonlat[1];
-  console.log(currentLatitude, currentLongitude);
+  // console.log(currentLatitude, currentLongitude);
 
   // sending the location to the server to send to other users
   let locForServer = {
@@ -191,10 +298,13 @@ function handleNewPosition(pos){
   }
 }
 
+// Generate random code
 function generateRandomCode() {
   let code = [];
   for (let i = 0; i < codeSize; i++) {
-    code.push(Math.floor(Math.random() * 16)); // 0 to 15 inclusive
+    // random from 0 to 15
+    // make sure is integer rounding down
+    code.push(Math.floor(Math.random() * 16));
   }
   return code;
 }
@@ -203,8 +313,6 @@ function generateRandomCode() {
 
 // Listening for the location of other users
 socket.on('locationFromServer', function(data){
-  console.log('data from someone', data);
-
   // if it is an existing player from the list it has
   if(otherPlayers[data.user]){
     // Update existing player location
@@ -214,6 +322,7 @@ socket.on('locationFromServer', function(data){
     // given it is a New player (not from its leaste), create object
     otherPlayers[data.user] = new PlayerPoint(data.lat, data.lon, data.user);
   }
+  // console.log('data from someone', data);
 })
 
 // Listening for the user that left
@@ -234,6 +343,9 @@ socket.on('startGame', function(data) {
   for (let i = 0; i < codeSize; i++) {
     randomCode.push(Math.floor(Math.random() * 16));
   }
+
+  // Show submit button at bottom center
+  submitCodeButton.style.display = 'block';
 
   console.log("Received center and numbers:", data.centerLat, data.centerLon, data.numbers);
   console.log("Generated code:", randomCode);
@@ -290,6 +402,18 @@ readyButton.addEventListener('click', () => {
   // Hide button after clicked
   readyButton.style.display = 'none';
 });
+
+// BUTTON SETUP WHEN PRESSED:
+const submitCodeButton = document.getElementById('submitCodeButton');
+
+submitCodeButton.addEventListener('click', () => {
+   // Activate entering code sequence
+  isEnteringCode = true;
+  userTapSequence = [];
+  submitCodeButton.classList.add('active');
+  console.log("Tap sequence activated! Tap zones in order.");
+});
+
 
 /*----------------------------------------------*/
 // Convert GPS coordinates to on-screen position

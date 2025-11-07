@@ -50,10 +50,10 @@ function report(state) {
 
 
 function fixForChineseMap(pos){
-    console.log("fixForChineseMap", pos)
+    // console.log("fixForChineseMap", pos)
     let lat = pos.coords.latitude;
     let lon = pos.coords.longitude;
-    console.log("fixForChineseMap fixing:", lat, lon)
+    // console.log("fixForChineseMap fixing:", lat, lon)
     return wgs84togcj02(lon, lat);
 }
 
