@@ -69,7 +69,16 @@ io.on('connection', (socket) => {
 
             // Send to all user this information
             io.emit('startGame', { centerLat, centerLon, numbers});
+
             console.log('All users ready, starting game at center:', centerLat, centerLon);
+        } else {
+            console.log('Game not started: Total users =', totalUsers, ', Ready users =', readyUsers);
+            
+            // Send to all users how many have said ready
+            io.emit('updateReadyCount', {
+                readyUsers,
+                totalUsers
+            });
         }
     })
 
@@ -110,6 +119,11 @@ io.on('connection', (socket) => {
         // Remove user from currentlyConntected object
         delete currentlyConntected[socket.id];
         console.log('Updated list of connected users:', currentlyConntected);
+
+        // Reset all players' ready status since one left
+        for (let id in currentlyConntected) {
+            currentlyConntected[id].ready = false;
+        }
 
         // Notify everyone of the user leaving
         if(username) {

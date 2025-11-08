@@ -37,6 +37,11 @@ let codeFeedbackColor;
 let codeFeedbackTime = 0;
 const FEEDBACK_DURATION = 3000;
 
+// Notifications
+let notificationText = "";
+let notificationStartTime = 0;
+const NOTIFICATION_DURATION = 4000;
+
 // Zones/Squares
 let zones = [];
 let zoneNumbers = [];
@@ -99,20 +104,35 @@ function draw() {
       // Draw the zone border
       push();
         noFill();
-        // Color change depending on whether player is inside zone
-        if (isInside(currentLatitude, currentLongitude, z)) {
+        // Color change depending on zone state
+        // If we are in entering password state:
+        if (z.isActive) {
+          // Zone is being tapped → green if correct, red if incorrect
+          if (z.number === randomCode[userTapSequence.length - 1]) {
+            // Correct tap
+            stroke(0, 200, 0);
+            fill(0, 200, 0, 100);
+          } else {
+            // Incorrect tap
+            stroke(200, 0, 0);
+            fill(200, 0, 0, 100);
+          }
+        } else if (!isEnteringCode && isInside(currentLatitude, currentLongitude, z)) {
+          // When are not in entering password state:
+          // Player is inside this zone → blue
           stroke(0, 0, 255);
-          fill(0,0,255,50);
+          fill(0, 0, 255, 50);
         } else {
+          // Default zone appearance → gray/transparent
           stroke(0);
-          fill(0,25);
+          fill(0, 25);
         }
         strokeWeight(2);
         rect(left + margin, top + margin, w - margin * 2, h - margin * 2);
       pop();
     
       // Drawing zone number if it is inside zone
-      if (isInside(currentLatitude, currentLongitude, z)) {
+      if (!isEnteringCode && isInside(currentLatitude, currentLongitude, z)) {
         push();
           fill(255,100);
           circle(left + w / 2, top + h / 2, 35);
@@ -242,6 +262,35 @@ function draw() {
       text('Code: ' + winnerCode.join(", "), width / 2, height / 2 + 40);
     pop();
   }
+
+  // Display bottom-right notification
+if (notificationText && millis() - notificationStartTime < NOTIFICATION_DURATION) {
+  push();
+    textSize(10);
+    textAlign(RIGHT, CENTER);
+
+    let paddingX = 15;
+    let paddingY = 10;
+    let txtWidth = textWidth(notificationText) + paddingX * 2;
+    let txtHeight = textAscent() + textDescent() + paddingY * 2;
+
+    // Position bottom-right
+    let x = width - 20;
+    let y = height - 40;
+
+    // Smooth fade-out
+    let alpha = map(millis() - notificationStartTime, 0, NOTIFICATION_DURATION, 255, 0);
+    fill(255, 255, 255, alpha * 0.9);
+    noStroke();
+    rectMode(CENTER);
+    rect(x - txtWidth / 2, y, txtWidth, txtHeight, 8);
+
+    // Text
+    fill(0, alpha);
+    text(notificationText, x - paddingX, y + 2);
+  pop();
+}
+
 }
 
 /*----------------------------------------------*/
@@ -258,6 +307,8 @@ function touchStarted() {
         // Check what zone it is tapping
         if (isInside(pos.lat, pos.lng, z)) {
           console.log("Tapped zone number:", z.number);
+
+          z.isActive = true;
 
           // Check if the tapped number is correct in sequence
           if (z.number === randomCode[userTapSequence.length]) {
@@ -306,7 +357,7 @@ function touchStarted() {
           // stop when a condition has been met
           break;
         }
-      }    
+      }
     }
   } else {
     // if no GPS and touched screen:
@@ -318,6 +369,9 @@ function touchMoved() {
 }
 
 function touchEnded() {
+  for (let z of zones) {
+    z.isActive = false;
+  }
 }
 
 /*----------------------------------------------*/
@@ -361,6 +415,12 @@ function generateRandomCode() {
   return code;
 }
 
+function showNotification(text) {
+  notificationText = text;
+  notificationStartTime = millis();
+  console.log("NOTIFICATION:", text);
+}
+
 /*----------------------------------------------*/
 // Sockets
 
@@ -378,16 +438,46 @@ socket.on('locationFromServer', function(data){
   // console.log('data from someone', data);
 })
 
+socket.on('updateReadyCount', function(data) {
+  showNotification(data.readyUsers + '/' + data.totalUsers + ' players ready');
+});
+
 // Listening for the user that left
 socket.on('userThatLeft', function(username) {
-  console.log(username + " left");
+  showNotification(username + " left the game");
+
+  // Reset game state 
+  gameStarted = false;
+  gameEnded = false;
+  isEnteringCode = false;
+  currentZone = null;
+  randomCode = null;
+  discoveredCode = [];
+  userTapSequence = []; 
+  zones = [];
+  zoneNumbers = [];
+
+  // Reset feedback and visuals
+  codeFeedback = "";
+  codeFeedbackColor = color(0);
+  codeFeedbackTime = 0;
+
+  // reset UI elements
+  readyButton.style.display = 'block';
+  submitCodeButton.style.display = 'none'; 
+  submitCodeButton.classList.remove('active');  
 
   // remove from your otherPlayers
   delete otherPlayers[username];
+
+  // report
+  console.log("Game fully reset — waiting for players to ready up again.");
 });
 
 // Listening for when to start the game
 socket.on('startGame', function(data) {
+  showNotification("Game started!");
+
   // Draw the Grid
   createSquare(data.centerLat, data.centerLon, data.numbers);
 
@@ -555,7 +645,8 @@ function createSquare(centerLat, centerLon, numbers) {
       zones.push({
         lat,
         lon,
-        number: zoneNumbers[numberIndex]
+        number: zoneNumbers[numberIndex],
+        isActive: false
       });
     }
   }
