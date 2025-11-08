@@ -48,12 +48,11 @@ io.on('connection', (socket) => {
 
         // If more than 3 users and all are ready, start game
         if (totalUsers >= 3 && readyUsers === totalUsers) {
-
             let sumLat = 0;
             let sumLon = 0;
             let count = 0;
 
-            // Calculate Adding all lat and lon of all users together
+            // Calculate: Adding all lat and lon of all users together
             for (let userId in currentlyConntected) {
                 sumLat += currentlyConntected[userId].lat;
                 sumLon += currentlyConntected[userId].lon;
@@ -82,7 +81,7 @@ io.on('connection', (socket) => {
             lat: data.lat,
             lon: data.lon
         };
-        console.log('location of users:', currentlyConntected);
+        // console.log('location of users:', currentlyConntected);
 
         // share the location with everybody except the sender
         let locationInfo = {
@@ -91,6 +90,15 @@ io.on('connection', (socket) => {
             user: data.username
         }
         socket.broadcast.emit('locationFromServer', locationInfo);
+        // console.log('send other user location to others');
+    })
+
+    // listening if any player has completed their code
+    socket.on('submitCode', function(data){
+        console.log(data.username, 'has completed their code', data.code);
+
+        // notify all users game is over
+        io.emit('endGame', data);
     })
 
     // DISCONNECT
@@ -111,12 +119,15 @@ io.on('connection', (socket) => {
 
 })
 
-// Fisher-Yates shuffle
+// Shuffle Array order of zone numbers
 function shuffleArray(array) {
+    // Starting from the last element number
     for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      // swap array[i] and array[j]
-      [array[i], array[j]] = [array[j], array[i]];
+        // pick a random number to swap with
+        const j = Math.floor(Math.random() * (i + 1));
+        
+        // switch its value with an element before it
+        [array[i], array[j]] = [array[j], array[i]];
     }
 }
 

@@ -37,17 +37,27 @@ let codeFeedbackColor;
 let codeFeedbackTime = 0;
 const FEEDBACK_DURATION = 3000;
 
-// Zones
+// Zones/Squares
 let zones = [];
 let zoneNumbers = [];
 let gridRows = 4;
 let gridCols = 4;
 let zoneSize = 0.0016;
 
+// Endgame
+let gameEnded = false;
+let endGameMessage = "";
+let winnerName = "";
+let winnerCode = [];
+
 function setup() {
   canvas = createCanvas(windowWidth, windowHeight);
   canvas.parent("p5-canvas-container");
+  
+  // Draw this user player point
   me = new PlayerPoint(currentLatitude, currentLongitude, myName, true);
+  
+  // default
   codeFeedbackColor = color(0);
 }
 
@@ -82,6 +92,8 @@ function draw() {
       let left = min(topLeft.x, bottomRight.x);
       let w = abs(bottomRight.x - topLeft.x);
       let h = abs(bottomRight.y - topLeft.y);
+
+      // Margin so they do not overlap
       let margin = 1;
     
       // Draw the zone border
@@ -125,6 +137,7 @@ function draw() {
   }
 
   // Display the random code at top center
+  // if there is a random code:
   if (randomCode) {
     push();
       textSize(16);
@@ -132,11 +145,11 @@ function draw() {
       let paddingX = 15;
       let paddingY = 10;
 
-      // Calculate total width of code text for rectangle
+      // Calculate total width of code text to draw rectangle
       let codeText = randomCode.join(", ");
       let displayStr = "YOUR CODE: " + codeText;
       let txtWidth = textWidth(displayStr) + paddingX * 2;
-      let txtHeight = textAscent() + textDescent() + paddingY * 2;
+      let txtHeight = textSize() * 1.4 + paddingY * 2;
 
       // Draw rectangle
       fill(255, 220);
@@ -145,6 +158,7 @@ function draw() {
       rect(width / 2, txtHeight / 2 + 5, txtWidth, txtHeight, 8);
 
       // Draw the text numbers individually
+      // given we change their color during checking code
       let startX = width / 2 - txtWidth / 2 + paddingX;
       let yPos = 5 + paddingY;
 
@@ -164,16 +178,23 @@ function draw() {
         // number text
         text(randomCode[i], startX, yPos);
 
-        // adjust position
+        // adjust position for next number
         startX += textWidth(randomCode[i]);
+
+        // adding a ", " in btw them as long as it is not the last number
         if (i < randomCode.length - 1) {
+          // drawa the ", "
           text(", ", startX, yPos);
+
+          // adjust postion for next number given the addition of comma
           startX += textWidth(", ");
         }
       }
 
       // feedback text
       let feedbackY = txtHeight + 20;
+
+      // Showcase feedback as long as time of feedback remains
       if (codeFeedback && millis() - codeFeedbackTime < FEEDBACK_DURATION) {
         push();
           textAlign(CENTER, CENTER);
@@ -196,8 +217,29 @@ function draw() {
           text(codeFeedback, width / 2, feedbackY + feedbackHeight / 2);
         pop();
       } else {
+        // make it blank when no feedback is given
         codeFeedback = "";
       }
+    pop();
+  }
+
+  if(gameEnded){
+    push();
+      // background
+      fill(0, 180);
+      rectMode(CORNER);
+      rect(0, 0, width, height);
+  
+      // whether you win or lose
+      textAlign(CENTER, CENTER);
+      fill(255);
+      textSize(48);
+      text(endGameMessage, width / 2, height / 2 - 40);
+  
+      // the winner
+      textSize(24);
+      text('Winner: ' + winnerName, width / 2, height / 2 + 10);
+      text('Code: ' + winnerCode.join(", "), width / 2, height / 2 + 40);
     pop();
   }
 }
@@ -206,10 +248,11 @@ function draw() {
 // P5 touch events: (https://p5js.org/reference/#Touch)
 function touchStarted() {
   if(mapInit){
+    // show position it is tapped
     let pos = myMap.pixelToLatLng(touches[0].x, touches[0].y);
     // console.log("TOUCHED", pos);
 
-    // only begin touching squares/zones when entering code
+    // only begin touching squares/zones when entering code button is pressed
     if (isEnteringCode){
       for (let z of zones) {
         // Check what zone it is tapping
@@ -219,6 +262,7 @@ function touchStarted() {
           // Check if the tapped number is correct in sequence
           if (z.number === randomCode[userTapSequence.length]) {
             userTapSequence.push(z.number);
+            // if it is send message
             console.log("Correct! Sequence so far:", userTapSequence);
 
             // Set feedback for correct tap (green)
@@ -228,14 +272,20 @@ function touchStarted() {
 
             // Check if full code is completed
             if (userTapSequence.length === randomCode.length) {
+              // if it all code has been completed send to server accomplishment
               console.log("Code completed! Submitting to server:", userTapSequence);
               socket.emit('submitCode', { username: myName, code: userTapSequence });
+
+              // Set feedback for correct tap (green)
+              codeFeedback = "CODE COMPLETE! YOU WIN";
+              codeFeedbackColor = color(0, 200, 0);
+              codeFeedbackTime = millis();    
 
               // Reset everything
               userTapSequence = [];
               isEnteringCode = false;
 
-              // Remove the bright style
+              // Remove the bright style of Button "activated"
               submitCodeButton.classList.remove('active');
             }
           } else {
@@ -249,15 +299,17 @@ function touchStarted() {
             codeFeedbackColor = color(200, 0, 0);
             codeFeedbackTime = millis();
 
-            // Remove the bright style
+            // Remove the bright style of Button "activated"
             submitCodeButton.classList.remove('active');
           }
 
+          // stop when a condition has been met
           break;
         }
-      }
+      }    
     }
   } else {
+    // if no GPS and touched screen:
     console.log("TOUCHED", touches);
   }
 }
@@ -303,23 +355,24 @@ function generateRandomCode() {
   let code = [];
   for (let i = 0; i < codeSize; i++) {
     // random from 0 to 15
-    // make sure is integer rounding down
+    // make sure is integer so destimate random number from 0-16
     code.push(Math.floor(Math.random() * 16));
   }
   return code;
 }
+
 /*----------------------------------------------*/
 // Sockets
 
 // Listening for the location of other users
 socket.on('locationFromServer', function(data){
-  // if it is an existing player from the list it has
+  // if list has this existing player
   if(otherPlayers[data.user]){
-    // Update existing player location
+    // Update this existing player location
     otherPlayers[data.user].lat = data.lat;
     otherPlayers[data.user].lon = data.lon;
   } else {
-    // given it is a New player (not from its leaste), create object
+    // given it is a New player (not from its list), create object
     otherPlayers[data.user] = new PlayerPoint(data.lat, data.lon, data.user);
   }
   // console.log('data from someone', data);
@@ -329,7 +382,7 @@ socket.on('locationFromServer', function(data){
 socket.on('userThatLeft', function(username) {
   console.log(username + " left");
 
-  // remove from your otherPlayers object
+  // remove from your otherPlayers
   delete otherPlayers[username];
 });
 
@@ -347,9 +400,43 @@ socket.on('startGame', function(data) {
   // Show submit button at bottom center
   submitCodeButton.style.display = 'block';
 
+  // Report start game whether code is being generated and received correct data
   console.log("Received center and numbers:", data.centerLat, data.centerLon, data.numbers);
   console.log("Generated code:", randomCode);
 });
+
+// Listening for when to game is over
+socket.on('endGame', function(data){
+  // Store data
+  winnerName = data.username;
+  winnerCode = data.code;
+
+  // Determine win/loss message for this client
+  if(data.username === myName){
+    endGameMessage = "YOU WIN!";
+  } else {
+    endGameMessage = "YOU LOSE";
+  }
+
+  // Stop entering code
+  isEnteringCode = false;
+  submitCodeButton.classList.remove('active');
+
+  // Hide the submit code button
+  submitCodeButton.style.display = 'none'; 
+
+  // Show ready button to start a new game
+  readyButton.style.display = 'block';
+
+  // Clear the grid
+  zones = [];
+
+  // Stop further game logic
+  gameEnded = true;
+
+  console.log("Game ended for client:", myName, "Winner:", winnerName);
+})
+
 /*----------------------------------------------*/
 // Buttons and Infos
 
@@ -392,10 +479,17 @@ function sendName() {
   me = new PlayerPoint(currentLatitude, currentLongitude, myName, true);
 }
 
-// Ready Button
+// Ready Game Button
 const readyButton = document.getElementById('readyButton');
 
-readyButton.addEventListener('click', () => {
+// when button of ready for game is pressed
+readyButton.addEventListener('click', function() {
+  // Reset game end flags
+  gameEnded = false;
+  endGameMessage = "";
+  winnerName = "";
+  winnerCode = [];
+
   // Send ready event to server
   socket.emit('ready', { username: myName });
 
@@ -403,14 +497,21 @@ readyButton.addEventListener('click', () => {
   readyButton.style.display = 'none';
 });
 
-// BUTTON SETUP WHEN PRESSED:
+// Ready to try Code
 const submitCodeButton = document.getElementById('submitCodeButton');
 
-submitCodeButton.addEventListener('click', () => {
+// when button of being ready to try code
+submitCodeButton.addEventListener('click', function() {
    // Activate entering code sequence
   isEnteringCode = true;
+
+  // empty try sequence
   userTapSequence = [];
+
+  // change button aesthetic to activated mode
   submitCodeButton.classList.add('active');
+
+  // report entering entering sequence mode
   console.log("Tap sequence activated! Tap zones in order.");
 });
 
@@ -449,6 +550,7 @@ function createSquare(centerLat, centerLon, numbers) {
 
       // convert the grid into linear
       let numberIndex = r * gridCols + c;
+
       // store hidden number to each zone
       zones.push({
         lat,
