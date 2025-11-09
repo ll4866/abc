@@ -8,7 +8,14 @@ let mapInit = false; // we only do map stuff once mapInit is true (see in draw)
 let me;                     // point object showing our own location
 let otherPlayers = {};
 
-let socket = io();
+
+// let socket = io();
+
+if (location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')) {
+  socket = io({ path: "/lucas/port-4230/socket.io" });
+} else {
+  socket = io();
+}
 
 // setup default data of location and zoom (will change once given data)
 let mappa_options = {
