@@ -1,10 +1,9 @@
 body {
     margin: 0;
- }
+}
  
- 
- /* OVERLAYS */
- .overlay {
+/* OVERLAYS */
+.overlay {
     position: fixed;
     padding: 0px 25px;
     inset: 0;
@@ -14,66 +13,60 @@ body {
     justify-content: center;
     font-family: Courier;
     z-index: 10000;
- }
+}
  
  
- /* NAME ENTRY */
- .nameBox {
+/* NAME ENTRY */
+.nameBox {
     background: rgb(14, 99, 107);
     padding: 15px 20px;
     border-radius: 30px;
     text-align: center;
     box-shadow: 0 2px 22px rgb(173, 244, 232);
     color: rgb(255, 255, 255);
- }
+}
  
- 
- .nameBox input {
+.nameBox input {
     margin: 10px 0;
     padding: 8px 6px;
     border-radius: 20px;
     font-size: 10px;
     width: 70%;
     box-sizing: border-box;
- }
+}
  
- 
- .nameBox button {
+.nameBox button {
     padding: 8px 16px;
     border-radius: 20px;
     font-size: 12px;
     cursor: pointer;
     background: white;
     border: none;
- }
+}
  
- 
- /* TEAM SELECTION */
- .teamBox {
+/* TEAM SELECTION */
+.teamBox {
     background: rgb(14, 99, 107);
     padding: 30px 40px;
     border-radius: 30px;
     text-align: center;
     box-shadow: 0 2px 22px rgb(173, 244, 232);
     color: rgb(255, 255, 255);
- }
+}
  
- 
- .teamBox h2 {
+.teamBox h2 {
     margin-top: 0;
     margin-bottom: 25px;
     font-size: 24px;
- }
+}
  
- 
- .team-buttons {
+.team-buttons {
     display: flex;
     gap: 20px;
     flex-direction: column;
- }
+}
  
- 
- .team-button {
+.team-button {
     padding: 20px 30px;
     font-size: 20px;
     font-weight: bold;
@@ -86,60 +79,47 @@ body {
     justify-content: center;
     gap: 15px;
     font-family: Courier;
- }
+}
  
- 
- .team-icon {
+.team-icon {
     font-size: 28px;
- }
+}
  
- 
- .team-red {
+.team-red {
     background: #ff4444;
     color: white;
- }
+}
  
- 
- .team-red:hover {
+.team-red:hover {
     background: #ff6666;
     border-color: white;
     transform: scale(1.05);
- }
+}
  
- 
- .team-blue {
+.team-blue {
     background: #4444ff;
     color: white;
- }
+}
  
- 
- .team-blue:hover {
+.team-blue:hover {
     background: #6666ff;
     border-color: white;
     transform: scale(1.05);
- }
+}
  
- 
- .team-orange {
+.team-orange {
     background: #ff8800;
     color: white;
- }
+}
  
- 
- .team-orange:hover {
+.team-orange:hover {
     background: #ffaa33;
     border-color: white;
     transform: scale(1.05);
- }
+}
  
- 
- #requestGPS {
-    display: none;
- }
- 
- 
- /* READY BUTTON */
- #readyButton {
+/* READY BUTTON */
+#readyButton {
     display: none;
     position: fixed;
     bottom: 20px;
@@ -154,16 +134,14 @@ body {
     border: none;
     border-radius: 8px;
     font-weight: bold;
- }
+}
  
- 
- #readyButton:hover {
+#readyButton:hover {
     background-color: #45a049;
- }
+} 
  
- 
- /* SUBMIT CODE BUTTON */
- #submitCodeButton {
+/* SUBMIT CODE BUTTON */
+#submitCodeButton {
     display: none;
     position: fixed;
     bottom: 20px;
@@ -178,17 +156,15 @@ body {
     border: none;
     border-radius: 8px;
     font-weight: bold;
- }
+}
  
- 
- #submitCodeButton:hover {
+#submitCodeButton:hover {
     background-color: rgb(11, 110, 11);
- }
+}
  
- 
- #submitCodeButton.active {
+#submitCodeButton.active {
     background-color: rgb(255, 235, 57);
     color: #000;
     box-shadow: 0 0 15px rgb(255, 235, 57);
- }
+}
  

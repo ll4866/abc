@@ -1,66 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
- <meta charset="utf-8" />
- <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
- <link rel="manifest" href="manifest.json" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+  <link rel="manifest" href="manifest.json" />
 
+  <title>Code Clash</title>
 
- <title>Code Clash</title>
+  <link rel="stylesheet" type="text/css" href="style.css">
 
-
- <link rel="stylesheet" type="text/css" href="style.css">
-
-
- <script src="lib/p5.js"></script>
- <script src="lib/mappa.js" type="text/javascript"></script>
- <script src="socket.io/socket.io.js"></script>
+  <script src="lib/p5.js"></script>
+  <script src="lib/mappa.js" type="text/javascript"></script>
+  <script src="socket.io/socket.io.js"></script>
 </head>
 
-
 <body>
- <!-- Name Entry Overlay -->
- <div id="nameOverlay" class="overlay">
-   <div class="nameBox">
-     <label for="nameInput">Enter your name:</label>
-     <input id="nameInput" type="text" maxlength="12" placeholder="Your name" />
-     <button id="nameSubmit">Start</button>
-   </div>
- </div>
+  <!-- Name Entry Overlay -->
+  <div id="nameOverlay" class="overlay">
+    <div class="nameBox">
+      <label for="nameInput">Enter your name:</label>
+      <input id="nameInput" type="text" maxlength="12" placeholder="Your name" />
+      <button id="nameSubmit">Start</button>
+    </div>
+  </div>
 
+  <!-- Team Selection Overlay -->
+  <div id="teamOverlay" class="overlay" style="display: none;">
+    <div class="teamBox">
+      <h2>Choose Your Team</h2>
+      <div class="team-buttons">
+        <button class="team-button team-red" data-team="red">
+          <span class="team-icon">🔴</span>
+          <span>RED</span>
+        </button>
+        <button class="team-button team-blue" data-team="blue">
+          <span class="team-icon">🔵</span>
+          <span>BLUE</span>
+        </button>
+        <button class="team-button team-orange" data-team="orange">
+          <span class="team-icon">🟠</span>
+          <span>ORANGE</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
- <!-- Team Selection Overlay -->
- <div id="teamOverlay" class="overlay" style="display: none;">
-   <div class="teamBox">
-     <h2>Choose Your Team</h2>
-     <div class="team-buttons">
-       <button class="team-button team-red" data-team="red">
-         <span class="team-icon">🔴</span>
-         <span>RED</span>
-       </button>
-       <button class="team-button team-blue" data-team="blue">
-         <span class="team-icon">🔵</span>
-         <span>BLUE</span>
-       </button>
-       <button class="team-button team-orange" data-team="orange">
-         <span class="team-icon">🟠</span>
-         <span>ORANGE</span>
-       </button>
-     </div>
-   </div>
- </div>
+  <!-- Canvas -->
+  <div class="main-wrapper">
+    <div id="p5-canvas-container"></div>
+  </div>
+  
+  <!-- Buttons -->
+  <button id="readyButton">Ready</button>
+  <button id="submitCodeButton">Submit Code</button>
 
-
- <div class="main-wrapper">
-   <div id="p5-canvas-container"></div>
- </div>
-
-
- <button id="readyButton">Ready</button>
- <button id="submitCodeButton">Submit Code</button>
-
-
- <script src="requestGPS.js"></script>
- <script src="sketch.js"></script>
+  <script src="requestGPS.js"></script>
+  <script src="sketch.js"></script>
 </body>
 </html>
