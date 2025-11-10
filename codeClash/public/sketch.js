@@ -8,7 +8,6 @@ let mapInit = false; // we only do map stuff once mapInit is true (see in draw)
 let me;                     // point object showing our own location
 let otherPlayers = {};
 
-
 // let socket = io();
 
 if (location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')) {
@@ -33,7 +32,6 @@ let mappa_options = {
 /*----------------------------------------------*/
 // Game Setup
 let myName = '';
-let codeSize = 8;
 
 // CODE SETUP
 let randomCode; 
@@ -43,11 +41,14 @@ let codeFeedback = "";
 let codeFeedbackColor;
 let codeFeedbackTime = 0;
 const FEEDBACK_DURATION = 3000;
+let numberOfTries = 0;
+let cooldownTime = 0;
+const COOLDOWN_DURATION = 10000;
 
 // Notifications
 let notificationText = "";
 let notificationStartTime = 0;
-const NOTIFICATION_DURATION = 4000;
+const NOTIFICATION_DURATION = 10000;
 
 // Zones/Squares
 let zones = [];
@@ -270,34 +271,33 @@ function draw() {
     pop();
   }
 
-  // Display bottom-right notification
-if (notificationText && millis() - notificationStartTime < NOTIFICATION_DURATION) {
-  push();
-    textSize(10);
-    textAlign(RIGHT, CENTER);
+  // Display top-middle notification
+  if (notificationText && millis() - notificationStartTime < NOTIFICATION_DURATION) {
+    push();
+      textSize(10);
+      textAlign(RIGHT, CENTER);
 
-    let paddingX = 15;
-    let paddingY = 10;
-    let txtWidth = textWidth(notificationText) + paddingX * 2;
-    let txtHeight = textAscent() + textDescent() + paddingY * 2;
+      let paddingX = 15;
+      let paddingY = 10;
+      let txtWidth = textWidth(notificationText) + paddingX * 2;
+      let txtHeight = textAscent() + textDescent() + paddingY * 2;
 
-    // Position bottom-right
-    let x = width - 20;
-    let y = height - 40;
+      // Position bottom-right
+      let x = width/2 + txtWidth/2;
+      let y = height/4 - 40;
 
-    // Smooth fade-out
-    let alpha = map(millis() - notificationStartTime, 0, NOTIFICATION_DURATION, 255, 0);
-    fill(255, 255, 255, alpha * 0.9);
-    noStroke();
-    rectMode(CENTER);
-    rect(x - txtWidth / 2, y, txtWidth, txtHeight, 8);
+      // Smooth fade-out
+      let alpha = map(millis() - notificationStartTime, 0, NOTIFICATION_DURATION, 255, 0);
+      fill(255, 255, 255, alpha * 0.9);
+      noStroke();
+      rectMode(CENTER);
+      rect(x - txtWidth / 2, y, txtWidth, txtHeight, 8);
 
-    // Text
-    fill(0, alpha);
-    text(notificationText, x - paddingX, y + 2);
-  pop();
-}
-
+      // Text
+      fill(0, alpha);
+      text(notificationText, x - paddingX, y + 2);
+    pop();
+  }
 }
 
 /*----------------------------------------------*/
@@ -352,13 +352,28 @@ function touchStarted() {
             userTapSequence = [];
             isEnteringCode = false;
 
-            // Set feedback for incorrect (red)
-            codeFeedback = "Incorrect – try again!";
-            codeFeedbackColor = color(200, 0, 0);
-            codeFeedbackTime = millis();
-
             // Remove the bright style of Button "activated"
             submitCodeButton.classList.remove('active');
+
+            // Count incorrect attempt
+            numberOfTries ++;
+            console.log('Attempt try:', numberOfTries);
+
+            // Check if reached 3 failed tries
+            if (numberOfTries >= 3) {
+              // start cooldown time
+              cooldownTime = millis();
+
+              // showcase the cooldown time as feedback
+              codeFeedback = "Too many tries! Wait 10 seconds...";
+              codeFeedbackColor = color(255, 140, 0);
+              codeFeedbackTime = millis();
+            } else {
+              // Set feedback for incorrect (red)
+              codeFeedback = "Incorrect – try again!";
+              codeFeedbackColor = color(200, 0, 0);
+              codeFeedbackTime = millis();
+            }
           }
 
           // stop when a condition has been met
@@ -409,17 +424,6 @@ function handleNewPosition(pos){
   if(mapInit){
     updateMapContent();
   }
-}
-
-// Generate random code
-function generateRandomCode() {
-  let code = [];
-  for (let i = 0; i < codeSize; i++) {
-    // random from 0 to 15
-    // make sure is integer so destimate random number from 0-16
-    code.push(Math.floor(Math.random() * 16));
-  }
-  return code;
 }
 
 function showNotification(text) {
@@ -488,11 +492,8 @@ socket.on('startGame', function(data) {
   // Draw the Grid
   createSquare(data.centerLat, data.centerLon, data.numbers);
 
-  // Generate the random 8-number code (0-15)
-  randomCode = [];
-  for (let i = 0; i < codeSize; i++) {
-    randomCode.push(Math.floor(Math.random() * 16));
-  }
+  // Save the randomCode given
+  randomCode = data.randomCode;
 
   // Show submit button at bottom center
   submitCodeButton.style.display = 'block';
@@ -501,6 +502,11 @@ socket.on('startGame', function(data) {
   console.log("Received center and numbers:", data.centerLat, data.centerLon, data.numbers);
   console.log("Generated code:", randomCode);
 });
+
+// 
+socket.on('updateState', function(data){
+  showNotification(data + 'is attempting the code');
+})
 
 // Listening for when to game is over
 socket.on('endGame', function(data){
@@ -599,7 +605,33 @@ const submitCodeButton = document.getElementById('submitCodeButton');
 
 // when button of being ready to try code
 submitCodeButton.addEventListener('click', function() {
-   // Activate entering code sequence
+  // tell everyone this players has started submitting their code
+  socket.emit('state', myName);
+
+  // Check if player is still in cooldown
+  if (millis() - cooldownTime < COOLDOWN_DURATION && numberOfTries >= 3) {
+    // Calculate time remaining until next attempt
+    let remaining = ceil((COOLDOWN_DURATION - (millis() - cooldownTime)) / 1000);
+    
+    // Display time until next attempt
+    codeFeedback = "Wait " + remaining + "s before trying again.";
+    codeFeedbackColor = color(255, 140, 0);
+    codeFeedbackTime = millis();
+    console.log("In cooldown, wait", remaining, "seconds");
+    return;
+  }
+
+  // Reset tries if cooldown has passed
+  if (millis() - cooldownTime >= COOLDOWN_DURATION && numberOfTries >= 3) {
+    numberOfTries = 0;
+    // Display time until next attempt
+    codeFeedback = "Cooldown is over, you may try again.";
+    codeFeedbackColor = color(140, 255, 0);
+    codeFeedbackTime = millis();
+    console.log("Cooldown ended, tries reset");
+  }
+
+  // Activate entering code sequence
   isEnteringCode = true;
 
   // empty try sequence
@@ -610,6 +642,7 @@ submitCodeButton.addEventListener('click', function() {
 
   // report entering entering sequence mode
   console.log("Tap sequence activated! Tap zones in order.");
+  
 });
 
 

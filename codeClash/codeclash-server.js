@@ -24,6 +24,10 @@ const io = new Server(HTTPSserver); // start socket io
 
 // list of connected clients with their username and location
 let currentlyConntected = {}; 
+
+// random code size
+const codeSize = 8;
+
 io.on('connection', (socket) => {
     console.log('a user connected', socket.id);
 
@@ -48,6 +52,14 @@ io.on('connection', (socket) => {
 
         // If more than 3 users and all are ready, start game
         if (totalUsers >= 3 && readyUsers === totalUsers) {
+            let randomCode = [];
+            for (let i = 0; i < codeSize; i++) {
+                randomCode.push(Math.floor(Math.random() * 16));
+            }
+
+            console.log('Code for everyone:', randomCode);
+
+            // Caculate midpoint between players
             let sumLat = 0;
             let sumLon = 0;
             let count = 0;
@@ -68,7 +80,7 @@ io.on('connection', (socket) => {
             shuffleArray(numbers); // randomize order
 
             // Send to all user this information
-            io.emit('startGame', { centerLat, centerLon, numbers});
+            io.emit('startGame', { centerLat, centerLon, numbers, randomCode});
 
             console.log('All users ready, starting game at center:', centerLat, centerLon);
         } else {
@@ -110,6 +122,14 @@ io.on('connection', (socket) => {
         io.emit('endGame', data);
     })
 
+    // Listening for when a user is attempting their code
+    socket.on('state', function(data){
+        console.log('user: ', data, 'attempting code');
+
+        // notify all players
+        io.emit('updateState', data);
+    })
+
     // DISCONNECT
     socket.on("disconnect", function(){
         console.log("someone disconnected", socket.id)
@@ -130,7 +150,6 @@ io.on('connection', (socket) => {
             socket.broadcast.emit('userThatLeft', username);
         }
     })
-
 })
 
 // Shuffle Array order of zone numbers
