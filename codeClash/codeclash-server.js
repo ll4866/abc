@@ -97,7 +97,6 @@ io.on('connection', (socket) => {
             for (let i = 0; i < codeSize; i++) {
                 randomCode.push(Math.floor(Math.random() * 16));
             }
-            console.log('Code for everyone:', randomCode);
 
             // Calculate midpoint between players
             let sumLat = 0;
@@ -184,7 +183,7 @@ io.on('connection', (socket) => {
         
         // Remove user from list
         delete currentlyConnected[socket.id];
-        console.log('Updated list of connected users:', currentlyConnected);
+        // console.log('Updated list of connected users:', currentlyConnected);
 
         // Notify others
         if (username) {

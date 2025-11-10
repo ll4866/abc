@@ -567,7 +567,7 @@ socket.on('teamSelected', function(data) {
 
 // Listening for updates to all teams (including my own)
 socket.on('updateTeams', function(teams) {
-  console.log("Teams updated:", teams);
+  // console.log("Teams updated:", teams);
 });
 
 /*----------------------------------------------*/
