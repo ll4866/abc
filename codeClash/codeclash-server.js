@@ -179,7 +179,7 @@ io.on('connection', (socket) => {
         console.log("Someone disconnected:", socket.id);
         
         // Get the username and team of the disconnecting user
-        const username = currentlyConntected[socket.id].username;
+        const username = currentlyConnected[socket.id].username;
         const team = currentlyConnected[socket.id].team;
         
         // Remove user from list
@@ -206,5 +206,5 @@ function shuffleArray(array) {
 
 // Start HTTPS server
 httpsServer.listen(portHTTPS, () => {
- console.log("HTTPS Server started at port", portHTTPS);
+    console.log("HTTPS Server started at port", portHTTPS);
 });

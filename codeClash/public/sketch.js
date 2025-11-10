@@ -6,7 +6,7 @@ let currentLongitude = 0;
 let currentLatitude  = 0;
 let mapInit          = false;
 let me;
-let otherPlayers = {};
+let otherPlayers     = {};
 
 // link
 if (location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')) {
@@ -17,9 +17,9 @@ if (location.hostname.toLowerCase().startsWith('browsercircus') || location.host
 
 // Type of Map
 let mappa_options = {
-  lat: 0,
-  lng: 0,
-  zoom: 16,
+  lat:    0,
+  lng:    0,
+  zoom:   16,
   style: 'https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=6&x={x}&y={y}&z={z}',
 }
 
@@ -105,14 +105,14 @@ function draw() {
   if (mapInit) {
     // Draw zones/squares
     for (let z of zones) {
-      let topLeft = myMap.latLngToPixel(z.lat + zoneSize / 2, z.lon - zoneSize / 2);
+      let topLeft     = myMap.latLngToPixel(z.lat + zoneSize / 2, z.lon - zoneSize / 2);
       let bottomRight = myMap.latLngToPixel(z.lat - zoneSize / 2, z.lon + zoneSize / 2);
       
       // Calculating the x, y, w, h for rectangle
-      let top = min(topLeft.y, bottomRight.y);
-      let left = min(topLeft.x, bottomRight.x);
-      let w = abs(bottomRight.x - topLeft.x);
-      let h = abs(bottomRight.y - topLeft.y);
+      let top   = min(topLeft.y, bottomRight.y);
+      let left  = min(topLeft.x, bottomRight.x);
+      let w     = abs(bottomRight.x - topLeft.x);
+      let h     = abs(bottomRight.y - topLeft.y);
       
       // Margin so squares do not overlap
       let margin = 1;
@@ -135,9 +135,8 @@ function draw() {
             fill(200, 0, 0, 100);
           }
         } else if (!isEnteringCode && isInside(currentLatitude, currentLongitude, z)) {
-          // When are not in entering password state:
-          
-          // & player is inside this zone → blue
+          // When players is  not in entering password:
+          // & if player is inside zone → blue
           stroke(0, 0, 255);
           fill(0, 0, 255, 50);
         } else {
@@ -208,15 +207,14 @@ function draw() {
     push();
       textSize(15);
       textAlign(LEFT, TOP);
-
       let paddingX = 15;
       let paddingY = 10;
 
       // Calculate total width of code text to draw rectangle
-      let codeText = randomCode.join(", ");
-      let displayStr = "YOUR CODE: " + codeText;
-      let txtWidth = textWidth(displayStr) + paddingX * 2;
-      let txtHeight = textSize() * 1.4 + paddingY * 2;
+      let codeText    = randomCode.join(", ");
+      let displayStr  = "YOUR CODE: " + codeText;
+      let txtWidth    = textWidth(displayStr) + paddingX * 2;
+      let txtHeight   = textSize() * 1.4 + paddingY * 2;
       translate(0,70);
 
       // Draw rectangle
@@ -268,11 +266,11 @@ function draw() {
           textSize(15);
 
           // Calculate rectangle size
-          let feedbackY = txtHeight + 25;
-          let feedbackPaddingX = 10;
-          let feedbackPaddingY = 6;
-          let feedbackWidth = textWidth(codeFeedback) + feedbackPaddingX * 2;
-          let feedbackHeight = textAscent() + textDescent() + feedbackPaddingY * 2;
+          let feedbackY         = txtHeight + 25;
+          let feedbackPaddingX  = 10;
+          let feedbackPaddingY  = 6;
+          let feedbackWidth     = textWidth(codeFeedback) + feedbackPaddingX * 2;
+          let feedbackHeight    = textAscent() + textDescent() + feedbackPaddingY * 2;
 
           // Draw white rectangle behind feedback
           rectMode(CENTER);
@@ -307,8 +305,8 @@ function draw() {
       
       // the winner of this round
       textSize(24);
-      text('Winner: ' + winnerName, width / 2, height / 2 + 10);
-      text('Team: ' + winnerTeam, width / 2, height / 2 + 40);
+      text('🏆 Winning Player: ' + winnerName, width / 2, height / 2 + 10);
+      text('🏆 Winning Team: ' + winnerTeam, width / 2, height / 2 + 40);
     pop();
   }
 
@@ -319,9 +317,9 @@ function draw() {
       textAlign(RIGHT, CENTER);
 
       // variables
-      let paddingX = 15;
-      let paddingY = 10;
-      let txtWidth = textWidth(notificationText) + paddingX * 2;
+      let paddingX  = 15;
+      let paddingY  = 10;
+      let txtWidth  = textWidth(notificationText) + paddingX * 2;
       let txtHeight = textAscent() + textDescent() + paddingY * 2;
 
       // Position
@@ -376,7 +374,7 @@ function touchStarted() {
             if (userTapSequence.length === randomCode.length) {
               // if code has been completed send to server
               console.log("Code completed! Submitting to server:", userTapSequence);
-              socket.emit('submitCode', { username: myName, code: userTapSequence });
+              socket.emit('submitCode', { username: myName, team: myTeam });
 
               // Set feedback for correct tap (green)
               codeFeedback = "CODE COMPLETE! YOU WIN";
@@ -507,7 +505,7 @@ socket.on('startGame', function(data) {
 
   // Reset cooldown variables when game starts
   numberOfTries = 0;
-  cooldownTime = 0;
+  cooldownTime  = 0;
 
   // Draw the Grid
   createSquare(data.centerLat, data.centerLon, data.numbers);
@@ -640,10 +638,10 @@ const readyButton = document.getElementById('readyButton');
 // when button of ready for game is pressed
 readyButton.addEventListener('click', function() {
   // Reset game end flags
-  gameEnded = false;
-  endGameMessage = "";
-  winnerName = "";
-  winnerCode = [];
+  gameEnded       = false;
+  endGameMessage  = "";
+  winnerName      = "";
+  winnerCode      = [];
 
   // Send ready event to server
   socket.emit('ready', { username: myName });
@@ -666,9 +664,9 @@ submitCodeButton.addEventListener('click', function() {
     let remaining = ceil((COOLDOWN_DURATION - (millis() - cooldownTime)) / 1000);
   
     // Display time until next attempt
-    codeFeedback = "Wait " + remaining + "s before trying again.";
+    codeFeedback      = "Wait " + remaining + "s before trying again.";
     codeFeedbackColor = color(200, 0, 0);
-    codeFeedbackTime = millis();
+    codeFeedbackTime  = millis();
     console.log("In cooldown, wait", remaining, "seconds");
 
     // Don't activate code entry
@@ -681,9 +679,9 @@ submitCodeButton.addEventListener('click', function() {
     numberOfTries = 0;
 
     // showcase that cooldown is over
-    codeFeedback = "Cooldown is over, you may try again.";
+    codeFeedback      = "Cooldown is over, you may try again.";
     codeFeedbackColor = color(0);
-    codeFeedbackTime = millis();
+    codeFeedbackTime  = millis();
     console.log("Cooldown ended, tries reset");
   }
 
@@ -748,11 +746,11 @@ function createSquare(centerLat, centerLon, numbers) {
 // determine whether it is inside the zone or not
 function isInside(lat, lon, zone) {
   // the max and min of x and y based on zone
-  let halfSize = zoneSize / 2;
+  let halfSize    = zoneSize / 2;
   let squareNorth = zone.lat + halfSize;
   let squareSouth = zone.lat - halfSize;
-  let squareEast = zone.lon + halfSize;
-  let squareWest = zone.lon - halfSize;
+  let squareEast  = zone.lon + halfSize;
+  let squareWest  = zone.lon - halfSize;
 
   // if it fits inside zone return that it is true else false
   if (lat < squareNorth && lat > squareSouth && lon < squareEast && lon > squareWest) {
@@ -766,31 +764,31 @@ function isInside(lat, lon, zone) {
 // Player Point Class
 class PlayerPoint {
   constructor(lat, lon, username, isMe = false, team = null) {
-    this.lat = lat;
-    this.lon = lon;
+    this.lat      = lat;
+    this.lon      = lon;
     this.username = username;
-    this.isMe = isMe;
-    this.team = team;
-    this.x = 0;
-    this.y = 0;
-    this.goalX = 0;
-    this.goalY = 0;
-    this.size = 14;
+    this.isMe     = isMe;
+    this.team     = team;
+    this.x        = 0;
+    this.y        = 0;
+    this.goalX    = 0;
+    this.goalY    = 0;
+    this.size     = 14;
 
     // Colors differ by group
     if (this.isMe) {
       if (this.team && teamColors[this.team]) {
-        this.col = color(teamColors[this.team].main);
-        this.strokeCol = teamColors[this.team].dark;
-        this.boxCol = color(teamColors[this.team].light + 'E6');
-        this.textCol = color(teamColors[this.team].dark);
+        this.col        = color(teamColors[this.team].main);
+        this.strokeCol  = teamColors[this.team].dark;
+        this.boxCol     = color(teamColors[this.team].light + 'E6');
+        this.textCol    = color(teamColors[this.team].dark);
       }
     } else {
       if (this.team && teamColors[this.team]) {
-        this.col = color(teamColors[this.team].main);
-        this.strokeCol = teamColors[this.team].dark;
-        this.boxCol = color(teamColors[this.team].light + 'E6');
-        this.textCol = color(teamColors[this.team].dark);
+        this.col        = color(teamColors[this.team].main);
+        this.strokeCol  = teamColors[this.team].dark;
+        this.boxCol     = color(teamColors[this.team].light + 'E6');
+        this.textCol    = color(teamColors[this.team].dark);
       }
     }
   }
@@ -816,11 +814,11 @@ class PlayerPoint {
         noStroke();
         textSize(14);
         textAlign(CENTER, CENTER);
-        let paddingX = 8;
-        let paddingY = 4;
-        let txtWidth = textWidth(this.username) + paddingX * 2;
+        let paddingX  = 8;
+        let paddingY  = 4;
+        let txtWidth  = textWidth(this.username) + paddingX * 2;
         let txtHeight = textAscent() + textDescent() + paddingY * 2;
-        let rectY = -this.size - txtHeight / 2 - 10;
+        let rectY     = -this.size - txtHeight / 2 - 10;
 
         // name bubble
         fill(this.boxCol);
