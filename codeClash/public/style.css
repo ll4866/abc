@@ -1,10 +1,10 @@
-body{
+body {
     margin: 0;
-}
-
-
-/* NAME COVER */
-.overlay {
+ }
+ 
+ 
+ /* OVERLAYS */
+ .overlay {
     position: fixed;
     padding: 0px 25px;
     inset: 0;
@@ -12,40 +12,134 @@ body{
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: Courier; 
-}
-
-.nameBox {
+    font-family: Courier;
+    z-index: 10000;
+ }
+ 
+ 
+ /* NAME ENTRY */
+ .nameBox {
     background: rgb(14, 99, 107);
     padding: 15px 20px;
     border-radius: 30px;
     text-align: center;
     box-shadow: 0 2px 22px rgb(173, 244, 232);
-    color: rgb(255,255,255);
-}
-
-.nameBox input {
+    color: rgb(255, 255, 255);
+ }
+ 
+ 
+ .nameBox input {
     margin: 10px 0;
     padding: 8px 6px;
     border-radius: 20px;
     font-size: 10px;
     width: 70%;
     box-sizing: border-box;
-}
-
-.nameBox button {
+ }
+ 
+ 
+ .nameBox button {
     padding: 8px 16px;
     border-radius: 20px;
     font-size: 12px;
     cursor: pointer;
-}
-
-#requestGPS {
-    display: none; 
-}
-
-/* Ready Button */
-#readyButton {
+    background: white;
+    border: none;
+ }
+ 
+ 
+ /* TEAM SELECTION */
+ .teamBox {
+    background: rgb(14, 99, 107);
+    padding: 30px 40px;
+    border-radius: 30px;
+    text-align: center;
+    box-shadow: 0 2px 22px rgb(173, 244, 232);
+    color: rgb(255, 255, 255);
+ }
+ 
+ 
+ .teamBox h2 {
+    margin-top: 0;
+    margin-bottom: 25px;
+    font-size: 24px;
+ }
+ 
+ 
+ .team-buttons {
+    display: flex;
+    gap: 20px;
+    flex-direction: column;
+ }
+ 
+ 
+ .team-button {
+    padding: 20px 30px;
+    font-size: 20px;
+    font-weight: bold;
+    border: 3px solid transparent;
+    border-radius: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    font-family: Courier;
+ }
+ 
+ 
+ .team-icon {
+    font-size: 28px;
+ }
+ 
+ 
+ .team-red {
+    background: #ff4444;
+    color: white;
+ }
+ 
+ 
+ .team-red:hover {
+    background: #ff6666;
+    border-color: white;
+    transform: scale(1.05);
+ }
+ 
+ 
+ .team-blue {
+    background: #4444ff;
+    color: white;
+ }
+ 
+ 
+ .team-blue:hover {
+    background: #6666ff;
+    border-color: white;
+    transform: scale(1.05);
+ }
+ 
+ 
+ .team-orange {
+    background: #ff8800;
+    color: white;
+ }
+ 
+ 
+ .team-orange:hover {
+    background: #ffaa33;
+    border-color: white;
+    transform: scale(1.05);
+ }
+ 
+ 
+ #requestGPS {
+    display: none;
+ }
+ 
+ 
+ /* READY BUTTON */
+ #readyButton {
     display: none;
     position: fixed;
     bottom: 20px;
@@ -54,28 +148,47 @@ body{
     padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
-    z-index: 1000; /* <- make sure map is behind it !!!!! */
-}
-  
-/* SUBMIT CODE Button */
-#submitCodeButton {
+    z-index: 1000;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+ }
+ 
+ 
+ #readyButton:hover {
+    background-color: #45a049;
+ }
+ 
+ 
+ /* SUBMIT CODE BUTTON */
+ #submitCodeButton {
     display: none;
     position: fixed;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
     background-color: rgb(9, 92, 9);
+    color: white;
+    padding: 10px 20px;
     font-size: 16px;
     cursor: pointer;
-    z-index: 1000; /* <- make sure map is behind it !!!!! */
-}
-
-#submitCodeButton:hover {
-    background-color: rgb(9, 92, 9);
-}
-
-#submitCodeButton.active {
+    z-index: 1000;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+ }
+ 
+ 
+ #submitCodeButton:hover {
+    background-color: rgb(11, 110, 11);
+ }
+ 
+ 
+ #submitCodeButton.active {
     background-color: rgb(255, 235, 57);
     color: #000;
     box-shadow: 0 0 15px rgb(255, 235, 57);
-}
+ }
+ 

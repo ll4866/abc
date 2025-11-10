@@ -1,171 +1,233 @@
+// Import dependencies
 const express = require('express');
-
 const https = require("https");
-// to read certificates from the filesystem (fs)
 const fs = require("fs");
-const app = express(); // the server "app", the server behaviour
-const portHTTPS = 4230; // YOUR port
+const { Server } = require('socket.io');
 
-// returning to the client anything that is
-// inside the public folder
+
+const app = express();
+const portHTTPS = 4230; // your HTTPS port
+
+
+// Serve anything inside the public folder
 app.use(express.static('public'));
 
-// Creating object of key and certificate
-// for SSL
+
+// SSL key and certificate for HTTPS
 const options = {
-    key: fs.readFileSync("localhost-key.pem"),
-    cert: fs.readFileSync("localhost.pem"),
+ key: fs.readFileSync("localhost-key.pem"),
+ cert: fs.readFileSync("localhost.pem"),
 };
 
-let HTTPSserver = https.createServer(options, app)
 
-const { Server } = require('socket.io'); // include library
-const io = new Server(HTTPSserver); // start socket io 
+// Create HTTPS server
+const httpsServer = https.createServer(options, app);
+const io = new Server(httpsServer);
 
-// list of connected clients with their username and location
-let currentlyConntected = {}; 
 
-// random code size
+// List of connected clients with their username and location
+let currentlyConnected = {};
+
+
+// Track teams and their progress (survives reconnections)
+let teams = {
+ red: { players: [], code: null, completed: false },
+ blue: { players: [], code: null, completed: false },
+ orange: { players: [], code: null, completed: false }
+};
+
+
+// Random code size
 const codeSize = 8;
 
+
+// Socket.io connection handler
 io.on('connection', (socket) => {
-    console.log('a user connected', socket.id);
+ console.log('A user connected:', socket.id);
 
-    // keep track of all clients connected
-    // have default be intialized as nothing, location 0
-    currentlyConntected[socket.id] = {
-        username: null,
-        lat: 0,
-        lon: 0,
-        ready: false
-    };
 
-    // listening when all clients are ready to start the game
-    socket.on('ready', function(data){
-        // mark users that are ready
-        currentlyConntected[socket.id].ready = true;
-        console.log(data.username, 'is ready');
-    
-        // Count how many users are ready conpared to total number of users
-        const readyUsers = Object.values(currentlyConntected).filter(u => u.ready).length;
-        const totalUsers = Object.keys(currentlyConntected).length;
+ // Initialize connection data
+ currentlyConnected[socket.id] = {
+   username: null,
+   lat: 0,
+   lon: 0,
+   ready: false,
+   team: null
+ };
 
-        // If more than 3 users and all are ready, start game
-        if (totalUsers >= 3 && readyUsers === totalUsers) {
-            let randomCode = [];
-            for (let i = 0; i < codeSize; i++) {
-                randomCode.push(Math.floor(Math.random() * 16));
-            }
 
-            console.log('Code for everyone:', randomCode);
+ // Handle team selection
+ socket.on('selectTeam', function (data) {
+   const { username, team } = data;
 
-            // Caculate midpoint between players
-            let sumLat = 0;
-            let sumLon = 0;
-            let count = 0;
 
-            // Calculate: Adding all lat and lon of all users together
-            for (let userId in currentlyConntected) {
-                sumLat += currentlyConntected[userId].lat;
-                sumLon += currentlyConntected[userId].lon;
-                count++;
-            }
+   // Save team and username
+   currentlyConnected[socket.id].username = username;
+   currentlyConnected[socket.id].team = team;
 
-            // Dividing the sum lon and lat to get center point
-            const centerLat = sumLat / totalUsers;
-            const centerLon = sumLon / totalUsers;
 
-            // Generating zone with numbers from 0-9
-            let numbers = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15];
-            shuffleArray(numbers); // randomize order
+   // Add player to team if not already there
+   if (!teams[team].players.includes(username)) {
+     teams[team].players.push(username);
+   }
 
-            // Send to all user this information
-            io.emit('startGame', { centerLat, centerLon, numbers, randomCode});
 
-            console.log('All users ready, starting game at center:', centerLat, centerLon);
-        } else {
-            console.log('Game not started: Total users =', totalUsers, ', Ready users =', readyUsers);
-            
-            // Send to all users how many have said ready
-            io.emit('updateReadyCount', {
-                readyUsers,
-                totalUsers
-            });
-        }
-    })
+   console.log(`${username} joined team ${team}`);
 
-    // listening for the location of all clients
-    socket.on('locationFromClient', function(data){
-        // Update this user's info
-        currentlyConntected[socket.id] = {
-            username: data.username,
-            lat: data.lat,
-            lon: data.lon
-        };
-        // console.log('location of users:', currentlyConntected);
 
-        // share the location with everybody except the sender
-        let locationInfo = {
-            lat: data.lat,
-            lon: data.lon,
-            user: data.username
-        }
-        socket.broadcast.emit('locationFromServer', locationInfo);
-        // console.log('send other user location to others');
-    })
+   // Send current game state to rejoining player
+   socket.emit('teamSelected', {
+     team: team,
+     teamData: teams[team],
+     allTeams: teams
+   });
 
-    // listening if any player has completed their code
-    socket.on('submitCode', function(data){
-        console.log(data.username, 'has completed their code', data.code);
 
-        // notify all users game is over
-        io.emit('endGame', data);
-    })
+   // Notify all players about team update
+   io.emit('updateTeams', teams);
+ });
 
-    // Listening for when a user is attempting their code
-    socket.on('state', function(data){
-        console.log('user: ', data, 'attempting code');
 
-        // notify all players
-        io.emit('updateState', data);
-    })
+ // Handle ready status
+ socket.on('ready', function (data) {
+   // Mark user as ready
+   currentlyConnected[socket.id].ready = true;
+   console.log(data.username, 'is ready');
 
-    // DISCONNECT
-    socket.on("disconnect", function(){
-        console.log("someone disconnected", socket.id)
-        
-        const username = currentlyConntected[socket.id].username;
 
-        // Remove user from currentlyConntected object
-        delete currentlyConntected[socket.id];
-        console.log('Updated list of connected users:', currentlyConntected);
+   // Count ready vs total users
+   const readyUsers = Object.values(currentlyConnected).filter(u => u.ready).length;
+   const totalUsers = Object.keys(currentlyConnected).length;
 
-        // Reset all players' ready status since one left
-        for (let id in currentlyConntected) {
-            currentlyConntected[id].ready = false;
-        }
 
-        // Notify everyone of the user leaving
-        if(username) {
-            socket.broadcast.emit('userThatLeft', username);
-        }
-    })
-})
+   // If more than 3 users and all ready, start game
+   if (totalUsers >= 3 && readyUsers === totalUsers) {
+     // Create random code
+     let randomCode = [];
+     for (let i = 0; i < codeSize; i++) {
+       randomCode.push(Math.floor(Math.random() * 16));
+     }
+
+
+     console.log('Code for everyone:', randomCode);
+
+
+     // Calculate midpoint between players
+     let sumLat = 0;
+     let sumLon = 0;
+
+
+     for (let userId in currentlyConnected) {
+       sumLat += currentlyConnected[userId].lat;
+       sumLon += currentlyConnected[userId].lon;
+     }
+
+
+     const centerLat = sumLat / totalUsers;
+     const centerLon = sumLon / totalUsers;
+
+
+     // Generate zone numbers (0–15) and shuffle
+     let numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
+     shuffleArray(numbers);
+
+
+     // Send start signal to all users
+     io.emit('startGame', { centerLat, centerLon, numbers, randomCode });
+
+
+     console.log('All users ready, starting game at center:', centerLat, centerLon);
+   } else {
+     console.log('Game not started: Total users =', totalUsers, ', Ready users =', readyUsers);
+     io.emit('updateReadyCount', { readyUsers, totalUsers });
+   }
+ });
+
+
+ // Listening for the location of all clients
+ socket.on('locationFromClient', function (data) {
+   currentlyConnected[socket.id].username = data.username;
+   currentlyConnected[socket.id].lat = data.lat;
+   currentlyConnected[socket.id].lon = data.lon;
+
+
+   // Share location with everyone except the sender
+   let locationInfo = {
+     lat: data.lat,
+     lon: data.lon,
+     user: data.username,
+     team: currentlyConnected[socket.id].team
+   };
+
+
+   socket.broadcast.emit('locationFromServer', locationInfo);
+ });
+
+
+ // Listening if any player has completed their code
+ socket.on('submitCode', function (data) {
+
+
+   const team = currentlyConnected[socket.id].team;
+   if (team) {
+     teams[team].code = data.code;
+     teams[team].completed = true;
+   }
+
+
+   // Add team info to end game data
+   data.team = team;
+   io.emit('endGame', data);
+   console.log(data.username, 'has completed their code',data.team);
+ });
+
+
+ // Listening for when a user is attempting their code
+ socket.on('state', function (data) {
+   console.log('user:', data, 'attempting code');
+   io.emit('updateState', data);
+ });
+
+
+ // Disconnect handler
+ socket.on("disconnect", function () {
+   console.log("Someone disconnected:", socket.id);
+
+
+   const username = currentlyConnected[socket.id]?.username;
+   const team = currentlyConnected[socket.id]?.team;
+
+
+   // Remove user from list
+   delete currentlyConnected[socket.id];
+   console.log('Updated list of connected users:', currentlyConnected);
+
+
+   // Notify others
+   if (username) {
+     socket.broadcast.emit('userThatLeft', { username, team });
+   }
+
+
+   // Update teams display
+   io.emit('updateTeams', teams);
+ });
+});
+
 
 // Shuffle Array order of zone numbers
 function shuffleArray(array) {
-    // Starting from the last element number
-    for (let i = array.length - 1; i > 0; i--) {
-        // pick a random number to swap with
-        const j = Math.floor(Math.random() * (i + 1));
-        
-        // switch its value with an element before it
-        [array[i], array[j]] = [array[j], array[i]];
-    }
+ for (let i = array.length - 1; i > 0; i--) {
+   const j = Math.floor(Math.random() * (i + 1));
+   [array[i], array[j]] = [array[j], array[i]];
+ }
 }
 
-// Creating https server by passing
-// options and app object
-HTTPSserver.listen(portHTTPS, function (req, res) {
-    console.log("HTTPS Server started at port", portHTTPS);
+
+// Start HTTPS server
+httpsServer.listen(portHTTPS, () => {
+ console.log("HTTPS Server started at port", portHTTPS);
 });
+
+
+
