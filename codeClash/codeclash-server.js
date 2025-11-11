@@ -207,6 +207,12 @@ io.on('connection', (socket) => {
             const hasBlue = connectedUsers.some(u => u.team === 'blue');
             const hasOrange = connectedUsers.some(u => u.team === 'orange');
 
+            // Collect empty teams
+            const emptyTeams = [];
+            if (!hasRed) emptyTeams.push('red');
+            if (!hasBlue) emptyTeams.push('blue');
+            if (!hasOrange) emptyTeams.push('orange');
+
             // when a team has no user
             if (!hasRed || !hasBlue || !hasOrange) {
                 console.log("⚠️ One or more teams empty — resetting game.");
@@ -218,8 +224,8 @@ io.on('connection', (socket) => {
                 gameStarted = false;
                 currentGameInfo = undefined;
 
-                // Update teams display
-                io.emit('updateTeams', teams);
+                // Sen to all that missing a member for a team
+                io.emit('updateTeams', emptyTeams);
             }
         }
     });

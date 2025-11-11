@@ -565,8 +565,8 @@ socket.on('teamSelected', function(data) {
   console.log("Team data:", data.teamData);
 });
 
-// Listening for updates to all teams (including my own)
-socket.on('updateTeams', function(teams) {
+// Listening for when missing a player for a team
+socket.on('updateTeams', function(emptyTeams) {
   // Stop entering code
   isEnteringCode = false;
   submitCodeButton.classList.remove('active');
@@ -580,8 +580,11 @@ socket.on('updateTeams', function(teams) {
   // Clear the grid
   zones = [];
 
-  // Report missing a user in a team
-  console.log("Teams updated:", teams);
+  // Show notification for each empty team
+  emptyTeams.forEach(team => {
+    showNotification("Someone left and team " + team.toUpperCase() + " has no members!");
+    console.log("Team " + team + " has no members!");
+  });
 });
 
 /*----------------------------------------------*/
