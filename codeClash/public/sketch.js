@@ -446,6 +446,12 @@ function windowResized() {
 
 // Calls for GPS whenever location changes
 function handleNewPosition(pos) {
+  // if(pos.coords.accuracy > 20){
+  //   console.log("not so accurate, skipping", pos.coords.accuracy);
+  //   return;
+  // }
+  // console.log("accuracy", pos.coords.accuracy);
+
   // fix location for chinese map tiles
   let lonlat = fixForChineseMap(pos);
   currentLongitude = lonlat[0];
