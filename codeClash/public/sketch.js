@@ -176,169 +176,169 @@ function draw() {
       otherPlayers[user].update();
       otherPlayers[user].display();
     }
-  }
 
-  // Display team badge in top-left
-  if (myTeam) {
-    let badgeSize = 80;
-    
-    // Display text
-    push();
-      translate(width - badgeSize - 20, 20);
+    // Display team badge in top-left
+    if (myTeam) {
+      let badgeSize = 80;
+      
+      // Display text
+      push();
+        translate(width - badgeSize - 20, 20);
 
-      // rectangle
-      fill(teamColors[myTeam].light);
-      noStroke();
-      rect(0, 0, badgeSize, 40, 14);
-        
-      // text
-      fill(teamColors[myTeam].dark);
-      textAlign(CENTER, CENTER);
-      textSize(15);
-      text("TEAM", badgeSize / 2, 12);
-      textSize(18);
-      text(myTeam.toUpperCase(), badgeSize / 2, 28);
-    pop();
-  }
+        // rectangle
+        fill(teamColors[myTeam].light);
+        noStroke();
+        rect(0, 0, badgeSize, 40, 14);
+          
+        // text
+        fill(teamColors[myTeam].dark);
+        textAlign(CENTER, CENTER);
+        textSize(15);
+        text("TEAM", badgeSize / 2, 12);
+        textSize(18);
+        text(myTeam.toUpperCase(), badgeSize / 2, 28);
+      pop();
+    }
 
-  // Display code
-  // if there is a random code:
-  if (randomCode) {
-    push();
-      textSize(15);
-      textAlign(LEFT, TOP);
-      let paddingX = 15;
-      let paddingY = 10;
+    // Display code
+    // if there is a random code:
+    if (randomCode) {
+      push();
+        textSize(15);
+        textAlign(LEFT, TOP);
+        let paddingX = 15;
+        let paddingY = 10;
 
-      // Calculate total width of code text to draw rectangle
-      let codeText    = randomCode.join(", ");
-      let displayStr  = "YOUR CODE: " + codeText;
-      let txtWidth    = textWidth(displayStr) + paddingX * 2;
-      let txtHeight   = textSize() * 1.4 + paddingY * 2;
-      translate(0,70);
+        // Calculate total width of code text to draw rectangle
+        let codeText    = randomCode.join(", ");
+        let displayStr  = "YOUR CODE: " + codeText;
+        let txtWidth    = textWidth(displayStr) + paddingX * 2;
+        let txtHeight   = textSize() * 1.4 + paddingY * 2;
+        translate(0,70);
 
-      // Draw rectangle
-      fill(255, 220);
-      noStroke();
-      rectMode(CENTER);
-      rect(width / 2, 20, txtWidth, txtHeight, 8);
+        // Draw rectangle
+        fill(255, 220);
+        noStroke();
+        rectMode(CENTER);
+        rect(width / 2, 20, txtWidth, txtHeight, 8);
 
-      // Draw the text numbers individually
-      // given we change their color during checking code
-      let startX = width / 2 - txtWidth / 2 + paddingX;
-      let yPos = 5 + paddingY;
+        // Draw the text numbers individually
+        // given we change their color during checking code
+        let startX = width / 2 - txtWidth / 2 + paddingX;
+        let yPos = 5 + paddingY;
 
-      // Draw the common text
-      fill(0);
-      text("YOUR CODE: ", startX, yPos);
-      startX += textWidth("YOUR CODE: ");
+        // Draw the common text
+        fill(0);
+        text("YOUR CODE: ", startX, yPos);
+        startX += textWidth("YOUR CODE: ");
 
-      // Draw each #
-      for (let i = 0; i < randomCode.length; i++) {
-        // based on # correct color change
-        if (i < userTapSequence.length) {
-          fill(0, 200, 0);
+        // Draw each #
+        for (let i = 0; i < randomCode.length; i++) {
+          // based on # correct color change
+          if (i < userTapSequence.length) {
+            fill(0, 200, 0);
+          } else {
+            fill(0);
+          }
+
+          // # text
+          text(randomCode[i], startX, yPos);
+
+          // adjust position for next #
+          startX += textWidth(randomCode[i]);
+
+          // adding a ", " in btw them as long as it is not the last #
+          if (i < randomCode.length - 1) {
+            // draw the ", "
+            text(", ", startX, yPos);
+
+            // adjust postion for next # given the addition of comma
+            startX += textWidth(", ");
+          }
+        }
+
+        // Individual Feedback
+        // Showcase feedback as long as time of feedback remains
+        if (codeFeedback && millis() - codeFeedbackTime < FEEDBACK_DURATION) {
+          push();
+            textAlign(CENTER, CENTER);
+            textSize(15);
+
+            // Calculate rectangle size
+            let feedbackY         = txtHeight + 25;
+            let feedbackPaddingX  = 10;
+            let feedbackPaddingY  = 6;
+            let feedbackWidth     = textWidth(codeFeedback) + feedbackPaddingX * 2;
+            let feedbackHeight    = textAscent() + textDescent() + feedbackPaddingY * 2;
+
+            // Draw white rectangle behind feedback
+            rectMode(CENTER);
+            fill(255, 220);
+            noStroke();
+            rect(width / 2, feedbackY + feedbackHeight / 2, feedbackWidth, feedbackHeight, 6);
+
+            // Draw feedback text centered
+            fill(codeFeedbackColor);
+            text(codeFeedback, width / 2, feedbackY + feedbackHeight / 2);
+          pop();
         } else {
-          fill(0);
+          // make indiviual feedback blank when no feedback is given
+          codeFeedback = "";
         }
+      pop();
+    }
 
-        // # text
-        text(randomCode[i], startX, yPos);
+    // ENDGAME screen
+    if (gameEnded) {
+      push();
+        // background
+        fill(0, 180);
+        rectMode(CORNER);
+        rect(0, 0, width, height);
+        
+        // showcase whether you win or lose
+        textAlign(CENTER, CENTER);
+        fill(255);
+        textSize(48);
+        text(endGameMessage, width / 2, height / 2 - 40);
+        
+        // the winner of this round
+        textSize(24);
+        text('🏆 Winning Player: ' + winnerName, width / 2, height / 2 + 10);
+        text('🏆 Winning Team: ' + winnerTeam, width / 2, height / 2 + 40);
+      pop();
+    }
 
-        // adjust position for next #
-        startX += textWidth(randomCode[i]);
+    // Display game state notification same for ALL
+    if (notificationText && millis() - notificationStartTime < NOTIFICATION_DURATION) {
+      push();
+        textSize(15);
+        textAlign(RIGHT, CENTER);
 
-        // adding a ", " in btw them as long as it is not the last #
-        if (i < randomCode.length - 1) {
-          // draw the ", "
-          text(", ", startX, yPos);
+        // variables
+        let paddingX  = 15;
+        let paddingY  = 10;
+        let txtWidth  = textWidth(notificationText) + paddingX * 2;
+        let txtHeight = textAscent() + textDescent() + paddingY * 2;
 
-          // adjust postion for next # given the addition of comma
-          startX += textWidth(", ");
-        }
-      }
+        // Position
+        let x = width / 2 + txtWidth / 2;
+        let y = height / 4;
 
-      // Individual Feedback
-      // Showcase feedback as long as time of feedback remains
-      if (codeFeedback && millis() - codeFeedbackTime < FEEDBACK_DURATION) {
-        push();
-          textAlign(CENTER, CENTER);
-          textSize(15);
+        // Smooth fade-out
+        let alpha = map(millis() - notificationStartTime, 0, NOTIFICATION_DURATION, 255, 0);
+        
+        // background
+        fill(255, 255, 255, alpha * 0.9);
+        noStroke();
+        rectMode(CENTER);
+        rect(x - txtWidth / 2, y, txtWidth, txtHeight, 8);
 
-          // Calculate rectangle size
-          let feedbackY         = txtHeight + 25;
-          let feedbackPaddingX  = 10;
-          let feedbackPaddingY  = 6;
-          let feedbackWidth     = textWidth(codeFeedback) + feedbackPaddingX * 2;
-          let feedbackHeight    = textAscent() + textDescent() + feedbackPaddingY * 2;
-
-          // Draw white rectangle behind feedback
-          rectMode(CENTER);
-          fill(255, 220);
-          noStroke();
-          rect(width / 2, feedbackY + feedbackHeight / 2, feedbackWidth, feedbackHeight, 6);
-
-          // Draw feedback text centered
-          fill(codeFeedbackColor);
-          text(codeFeedback, width / 2, feedbackY + feedbackHeight / 2);
-        pop();
-      } else {
-        // make indiviual feedback blank when no feedback is given
-        codeFeedback = "";
-      }
-    pop();
-  }
-
-  // ENDGAME screen
-  if (gameEnded) {
-    push();
-      // background
-      fill(0, 180);
-      rectMode(CORNER);
-      rect(0, 0, width, height);
-      
-      // showcase whether you win or lose
-      textAlign(CENTER, CENTER);
-      fill(255);
-      textSize(48);
-      text(endGameMessage, width / 2, height / 2 - 40);
-      
-      // the winner of this round
-      textSize(24);
-      text('🏆 Winning Player: ' + winnerName, width / 2, height / 2 + 10);
-      text('🏆 Winning Team: ' + winnerTeam, width / 2, height / 2 + 40);
-    pop();
-  }
-
-  // Display game state notification same for ALL
-  if (notificationText && millis() - notificationStartTime < NOTIFICATION_DURATION) {
-    push();
-      textSize(15);
-      textAlign(RIGHT, CENTER);
-
-      // variables
-      let paddingX  = 15;
-      let paddingY  = 10;
-      let txtWidth  = textWidth(notificationText) + paddingX * 2;
-      let txtHeight = textAscent() + textDescent() + paddingY * 2;
-
-      // Position
-      let x = width / 2 + txtWidth / 2;
-      let y = height / 4;
-
-      // Smooth fade-out
-      let alpha = map(millis() - notificationStartTime, 0, NOTIFICATION_DURATION, 255, 0);
-      
-      // background
-      fill(255, 255, 255, alpha * 0.9);
-      noStroke();
-      rectMode(CENTER);
-      rect(x - txtWidth / 2, y, txtWidth, txtHeight, 8);
-
-      // Text
-      fill(0, alpha);
-      text(notificationText, x - paddingX, y + 2);
-    pop();
+        // Text
+        fill(0, alpha);
+        text(notificationText, x - paddingX, y + 2);
+      pop();
+    }
   }
 }
 
@@ -567,6 +567,20 @@ socket.on('teamSelected', function(data) {
 
 // Listening for updates to all teams (including my own)
 socket.on('updateTeams', function(teams) {
+  // Stop entering code
+  isEnteringCode = false;
+  submitCodeButton.classList.remove('active');
+
+  // Hide the submit code button
+  submitCodeButton.style.display = 'none';
+
+  // Show ready button to start a new game
+  readyButton.style.display = 'block';
+
+  // Clear the grid
+  zones = [];
+
+  // Report missing a user in a team
   console.log("Teams updated:", teams);
 });
 

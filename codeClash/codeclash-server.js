@@ -33,7 +33,7 @@ let teams = {
 // Random code size
 const codeSize = 8;
 let gameStarted = false;
-
+let currentGameInfo; 
 // Socket.io connection handler
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
@@ -68,13 +68,18 @@ io.on('connection', (socket) => {
             allTeams: teams
         });
 
-        // Notify all players about team update
-        io.emit('updateTeams', teams);
+        // If game is ongoing, send current grid/code info to this new player
+        if (gameStarted && typeof currentGameInfo !== 'undefined') {
+            socket.emit('startGame', currentGameInfo);
+        }
     });
 
 
     // Handle ready status
     socket.on('ready', function (data) {
+        // Ignore ready presses if game already started
+        if (gameStarted) return;
+
         // Mark user as ready
         currentlyConnected[socket.id].ready = true;
         console.log(data.username, 'is ready');
@@ -115,7 +120,10 @@ io.on('connection', (socket) => {
             shuffleArray(numbers);
 
             // Send start to all users with important info
-            io.emit('startGame', { centerLat, centerLon, numbers, randomCode });
+            currentGameInfo = { centerLat, centerLon, numbers, randomCode };
+
+            // Send start to all users with important info
+            io.emit('startGame', currentGameInfo);
             console.log('All users ready, starting game at center:', centerLat, centerLon);
             console.log('Random code is:', randomCode);
         } else {            
@@ -154,6 +162,7 @@ io.on('connection', (socket) => {
     socket.on('submitCode', function (data) {        
         // End the game
         gameStarted = false; 
+        currentGameInfo = undefined;
 
         // Reset all users' ready state so they can press ready again
         for (let userId in currentlyConnected) {
@@ -190,8 +199,29 @@ io.on('connection', (socket) => {
             socket.broadcast.emit('userThatLeft', { username, team });
         }
 
-        // Update teams display
-        io.emit('updateTeams', teams);
+        // Only reset if game is ongoing
+        if (gameStarted){
+            // Check if each team still has at least one user
+            const connectedUsers = Object.values(currentlyConnected);
+            const hasRed = connectedUsers.some(u => u.team === 'red');
+            const hasBlue = connectedUsers.some(u => u.team === 'blue');
+            const hasOrange = connectedUsers.some(u => u.team === 'orange');
+
+            // when a team has no user
+            if (!hasRed || !hasBlue || !hasOrange) {
+                console.log("⚠️ One or more teams empty — resetting game.");
+
+                // Reset ready states and game flags
+                for (let id in currentlyConnected) {
+                    currentlyConnected[id].ready = false;
+                }
+                gameStarted = false;
+                currentGameInfo = undefined;
+
+                // Update teams display
+                io.emit('updateTeams', teams);
+            }
+        }
     });
 });
 
