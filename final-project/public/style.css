@@ -1,0 +1,40 @@
+/* OVERLAYS */
+.overlay {
+    position: fixed;
+    padding: 0px 25px;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: Courier;
+    z-index: 10000;
+}
+
+/* NAME ENTRY */
+.nameBox {
+    background: rgb(14, 99, 107);
+    padding: 15px 20px;
+    border-radius: 30px;
+    text-align: center;
+    box-shadow: 0 2px 22px rgb(173, 244, 232);
+    color: rgb(255, 255, 255);
+}
+ 
+.nameBox input {
+    margin: 10px 0;
+    padding: 8px 6px;
+    border-radius: 20px;
+    font-size: 10px;
+    width: 70%;
+    box-sizing: border-box;
+}
+ 
+.nameBox button {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    cursor: pointer;
+    background: white;
+    border: none;
+}
