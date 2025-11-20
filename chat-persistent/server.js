@@ -30,7 +30,19 @@ let sockets = {};
 // userId -> socket.id
 let users = {};  
 
-let messages = []
+let messages = [];
+
+let DATA_PATH = "chat-data.json";
+try {
+    if (fs.existsSync(DATA_PATH)) {
+      const file = fs.readFileSync(DATA_PATH, 'utf8');
+      messages = JSON.parse(file);
+      console.log('Loaded chat history:', messages.length, 'messages');
+    }
+} catch (err) {
+    console.log('Could not load chat history, starting empty');
+    messages = [];
+}  
 
 io.on('connection', (socket) => {
 
@@ -46,6 +58,7 @@ io.on('connection', (socket) => {
             username: data.username
         }
         users[data.userId]= socket.id;
+
         console.log("currently online", sockets);
         // console.log(users);
 
@@ -55,6 +68,7 @@ io.on('connection', (socket) => {
 
     socket.on("name-change", function(data){
         // handle change of username
+        sockets[socket.id].username = data.newUsername;
     })
 
     socket.on("message-from-client", function(data){
@@ -66,7 +80,14 @@ io.on('connection', (socket) => {
             sender: sockets[socket.id]
         }
 
+        // appending message to runtime messages object
         messages.push(message)
+
+        // save the new message arrays to the local JSON file
+        let stringifiedMessages = JSON.stringify(messages, null, 2);
+        fs.writeFileSync(DATA_PATH, stringifiedMessages, 'utf-8');
+
+        // send to all clients
         io.emit("message-from-server", message);
     })
 
@@ -85,16 +106,8 @@ io.on('connection', (socket) => {
 
 })
 
-
-
-
 // Creating servers and make them listen at their ports:
 
 HTTPSserver.listen(portHTTPS, function (req, res) {
     console.log("HTTPS Server started at port", portHTTPS);
 });
-
-
-
-
-

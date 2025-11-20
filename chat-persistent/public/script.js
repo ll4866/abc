@@ -15,7 +15,6 @@ let nameInput = document.querySelector("#nameInput");
 const myUserId = getOrCreateUserId();
 console.log('My userId:', myUserId);
 
-
 //check if we have a username already
 let myUsername = localStorage.getItem("chat-username");
 if(myUsername){
@@ -47,15 +46,15 @@ nameInput.addEventListener("change", function(){
     localStorage.setItem("chat-username", nameInput.value);
 
     // tell server about it
+    socket.emit("name-change", {
+        newUsername: nameInput.value
+    })
 })
-
-
 
 let formeElm = document.querySelector("#chatForm");
 console.log(formeElm);
 let msgInput = document.querySelector("#newMessage");
 console.log(msgInput)
-
 
 // LISTEN FOR NEWLY TYPED MESSAGES, 
 // SEND THEM TO THE SERVER
@@ -70,19 +69,16 @@ function newMessagesSubmitted(event){
     console.log(newMsg);
 
     // appendMessage(newMsg); // just for fun,
-    // actuaally we need to
+    // actually we need to
     // send the new message to 
     // the server first:
     socket.emit("message-from-client", {
         message: newMsg
     } );
 
-
     // clear out input:
     msgInput.value = "";
-
 }
-
 
 socket.on("message-from-server", function(data){
     // waht do to with the messaeg from server
@@ -90,12 +86,13 @@ socket.on("message-from-server", function(data){
     appendMessage(data)
 })
 
-
-
-
 socket.on("chat-history", function(data){
     // deal with chat history
-    
+    console.log(data);
+    for(let i = 0; i < data.length; i++){
+        let messageData = data[i];
+        appendMessage(messageData);
+    }
 })
 
 // APPEND MESSAGES TO BOX
@@ -108,22 +105,25 @@ function appendMessage(data){
     // create new list item (li)
     let newListItem = document.createElement("li");
     // class name if message is out own message
+    if (data.sender.userId == myUserId){
+        newListItem.className = "fromMe";
+    } else {
+        newListItem.className = "fromOthers";
+    }
 
     //sender
     let who = document.createElement("span");
     who.className = "who";
-    // who.innerText = 
+    who.innerText = data.sender.username;
 
     newListItem.append(who);
 
     //messsage
     let words = document.createElement("span");
     words.className = "words";
-    // words.innerText = 
+    words.innerText = data.message;
 
     newListItem.append(words);
-
-
 
     // append new li to the list 
     chatThreadList.append(newListItem);
