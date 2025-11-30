@@ -1,0 +1,48 @@
+body{
+    margin: 0;
+    overflow: hidden;
+}
+
+
+
+#main-wrapper{
+    width:100%;
+    margin-top: 50px;
+    /* height: 100vh; */
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+
+}
+#canvas-wrapper{
+    margin: auto;
+}
+
+
+button{
+    width: 50%;
+    height: 40px;
+    margin: auto;
+    margin-top: 20px;
+    touch-action: manipulation;
+}
+
+#captureButton{
+    
+}
+
+#sendButton{
+    display: none;
+}
+
+#album{
+    text-align: center;
+    background-color: black;
+    margin-top: 10px;
+    color: white;
+    font-weight: bold;
+    display: none;
+}
+#album img{
+    width: 70%;
+}

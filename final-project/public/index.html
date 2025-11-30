@@ -6,16 +6,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
   <link rel="manifest" href="manifest.json" />
 
-  <title>Project 3</title>
+  <title>Final Project</title>
 
   <link rel="stylesheet" type="text/css" href="style.css">
 
-  <!-- <script src="lib/p5.js"></script>
-  <script src="lib/p5.sound.js"></script> -->
+  <script src="lib/p5.js"></script>
+  <script src="lib/p5.sound.js"></script>
   <script src="socket.io/socket.io.js"></script>  
 </head>
 
 <body>
+  <button id="requestOrientationButton" onclick="requestOrientation()">Request Orientation</button>
+
+
   <!-- Name Entry Overlay -->
   <div id="nameOverlay" class="overlay">
     <div class="nameBox">
@@ -24,8 +27,14 @@
       <button id="nameSubmit">Start</button>
     </div>
   </div>
+  
+  <div class="main-wrapper">
+    <div id="p5-canvas-container"></div>
+  </div>
 
-  <!-- <script src="requestOrientation.js"></script>  -->
+  <button id="avatarSubmit" class="avatar-btn">Submit Avatar</button>
+  
+  <script src="requestOrientation.js"></script> 
   <script src="script.js"></script>
 </body>
 

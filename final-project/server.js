@@ -1,18 +1,17 @@
 const express = require('express');
 
 const https = require("https");
-// to read certificates from the filesystem (fs)
 const fs = require("fs");
 
-const app = express(); // the server "app", the server behaviour
-const portHTTPS = 4230; // port for https
+const app = express();
+const portHTTPS = 4230;
 
-// returning to the client anything that is
-// inside the public folder
+// when client request through https,
+// server returns anything that is
+// inside the public folder 
 app.use(express.static('public'));
 
-// Creating object of key and certificate
-// for SSL
+// Creating object of key and certificate for SSL
 const options = {
     key: fs.readFileSync("keys-for-local-https/localhost-key.pem"),
     cert: fs.readFileSync("keys-for-local-https/localhost.pem"),
@@ -25,6 +24,7 @@ const io = new Server(HTTPSserver); // start socket io
 
 let sockets = {};
 let users = {};  
+let avatars = {};
 
 io.on('connection', (socket) => {
     console.log('a user connected', socket.id);
@@ -42,6 +42,29 @@ io.on('connection', (socket) => {
         console.log("currently online", sockets);
         // console.log(users);
     })
+
+    socket.on('submit-avatar', (data) => {
+        console.log('Avatar received:', data);
+
+        // Extracting user ID
+        const userInfo = sockets[socket.id];
+        const myUserId = userInfo.userId;
+
+        // Save avatar based on userId
+        avatars[myUserId] = {
+            username: userInfo.username,
+            drawing: data
+        };
+        console.log('All Avatars received:', avatars);
+
+        // Send to other users this info
+        socket.broadcast.emit(
+            'new-avatar', {
+            userId: myUserId,
+            username: userInfo.username,
+            drawing: data
+        });
+    });
 
     socket.on("disconnect", function(){
         console.log("someone disconnected", socket.id);

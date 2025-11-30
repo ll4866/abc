@@ -38,3 +38,23 @@
     background: white;
     border: none;
 }
+
+.avatar-btn {
+    position: fixed;
+    top: 75%;
+    left: 35%;
+    padding: 10px 22px;
+    font-size: 14px;
+    border-radius: 25px;
+    background: rgb(14, 99, 107);
+    box-shadow: 0 2px 22px rgb(173, 244, 232);
+    color: white;
+    cursor: pointer;
+    display: none;
+    z-index: 9999;
+}
+
+#p5-canvas-container canvas {
+    position: fixed;  
+    z-index: 1;
+}
