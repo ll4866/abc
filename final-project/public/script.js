@@ -1,7 +1,5 @@
 /* ------------------------------------ */
 // NAME PAGE
-
-// Entering Username:
 const nameOverlay = document.getElementById('nameOverlay');
 const nameInput = document.getElementById('nameInput');
 const nameSubmit = document.getElementById('nameSubmit');
@@ -41,6 +39,10 @@ let isDrawing = false;
 // drawing the map
 let showMap = false;
 let alpha, beta, gamma = 0;
+let mapW = 4000;
+let mapH = 4000;
+let otherPlayers = {};
+
 // XY-Coodinates of user & map
 let mapX = 0;
 let mapY = 0;
@@ -63,6 +65,7 @@ function draw(){
         avatarSubmit.style.display = "block"; 
 
         // instructions
+        stroke(0);
         drawingContext.setLineDash([10, 5]); // https://editor.p5js.org/aahyes/sketches/DwvjDrMSz
         textSize(30);
         strokeWeight(3);
@@ -76,17 +79,7 @@ function draw(){
         circle(width/2, height/2, 200);
 
         // draw avatar
-        drawingContext.setLineDash([]); 
-        stroke(0);
-        strokeWeight(10);
-        noFill();
-        for (let strokeArr of myDrawingPoints) {
-            beginShape();
-            for (let pt of strokeArr) {
-                vertex(pt.x, pt.y);
-            }
-            endShape();
-        }
+        drawAvatar(myDrawingPoints);
     } else {
         avatarSubmit.style.display = "none";
     }
@@ -94,55 +87,95 @@ function draw(){
     /* ------------------------------------ */
     // MAP SECTION
     if (showMap == true){
+        // Movement Condition:
+            // How much tilt to move direction
+            if (round(gamma) > 35){
+                // console.log('the user is moving right');
+                mapX = mapX - moveScale;
+            } 
+            if (round(gamma) < -35){
+                // console.log('the user is moving left');
+                mapX = mapX + moveScale;
+            }
+            if (round(beta) > 25){
+                // console.log('the user is moving dowm');
+                mapY = mapY - moveScale;
+            }
+            if (round(beta) < -25){
+                // console.log('the user is moving up');
+                mapY = mapY + moveScale;
+            }
+
+            // bound user inside map
+            if (mapX > 0) {
+                mapX = 0;
+            } 
+            if (mapX < -mapW) {
+                mapX = -mapW;
+            } 
+            if (mapY > 0) {
+                mapY = 0;
+            }
+            if (mapY < -mapH) {
+                mapY = -mapH;
+            }
+
+        // Draw map (moving)
+            push();
+                translate(width/2 + mapX, height/2 + mapY);
+                fill(14, 99, 107);
+                rect(0,0,mapW,mapH);
+
+                // draw other users
+                for (let userId in otherPlayers) {
+                    // Skip drawing your own avatar here
+                    if (userId === myUserId) continue;
+
+                    // other users
+                    let p = otherPlayers[userId];
+                    push();
+                        // Position relative to the map
+                        translate(- width/8, - height/8);
+                        translate(p.x, p.y);
+                
+                        scale(0.25);
+                        drawAvatar(p.drawing, p.username);
+                    pop();
+                }
+            pop();
+
+        // My avatar (static)
+            push();
+                translate(3 * width/8, 3 * height/8);
+                scale(0.25);
+                drawAvatar(myDrawingPoints, myUsername);
+            pop();
+
+        // Direction Arrow Around Avatar
+            let L = 40;
+            push();
+                translate(width/2, height/2);
+
+                // convert tilt to an angle
+                let angle = atan2(beta, gamma);
+
+                // draw arrow
+                rotate(angle);
+                strokeWeight(6);
+                line(L, 0, L + 15, 0);
+                triangle(
+                    L + 20, 0,
+                    L + 10, 10,
+                    L + 10, -10
+                );
+            pop();
 
         // TESTING: orientation state
-        fill(0);
-        strokeWeight(1);
-        textSize(12);
-        text("beta: " + round(beta), width/2, 74);
-        text("gamma: " + round(gamma), width/2, 87);
-
-        if (round(gamma) > 35){
-            console.log('the user is moving right');
-            mapX = mapX - moveScale;
-        }
-
-        if (round(gamma) < -35){
-            console.log('the user is moving left');
-            mapX = mapX + moveScale;
-        }
-
-        if (round(beta) > 25){
-            console.log('the user is moving dowm');
-            mapY = mapY - moveScale;
-        }
-
-        if (round(beta) < -25){
-            console.log('the user is moving up');
-            mapY = mapY + moveScale;
-        }
-
-        push();
-            translate(mapX, mapY);
-            rect(0,0,100,200);
-        pop();
-
-        // draw avatar
-        push();
-            translate(width/4,height/4);
-            scale(0.5);
-            drawingContext.setLineDash([]); 
-            stroke(0);
-            strokeWeight(10);
-            noFill();
-            for (let strokeArr of myDrawingPoints) {
-                beginShape();
-                for (let pt of strokeArr) {
-                    vertex(pt.x, pt.y);
-                }
-                endShape();
-            }
-        pop();
+            fill(0);
+            strokeWeight(1);
+            textSize(12);
+            text("beta: " + round(beta), width/2, 74);
+            text("gamma: " + round(gamma), width/2, 87);
     } else {
         document.querySelector('#requestOrientationButton').style.display = "none";
     }
@@ -150,17 +183,18 @@ function draw(){
 
 /* ------------------------------------ */
 // DRAWING TOOL
+
 function touchStarted() {
-    // start drawing avatar
-    if (!isDrawing) return;
-    myDrawingPoints.push([]);
+    if (isDrawing) {
+        myDrawingPoints.push([]);
+    }
 }
 
 function touchMoved() {
-    // record avatar drawn stroke
-    if (!isDrawing) return;
-    for (let t of touches) {
-        myDrawingPoints[myDrawingPoints.length - 1].push({ x: t.x, y: t.y });
+    if (isDrawing){
+        for (let t of touches) {
+            myDrawingPoints[myDrawingPoints.length - 1].push({ x: t.x, y: t.y });
+        }
     }
 }
 
@@ -175,16 +209,20 @@ if(location.hostname.toLowerCase().startsWith('browsercircus') || location.hostn
     socket = io(); 
 }
 
-// Listeing for avatar of other players
-socket.on('new-avatar', (avatarData) => {
-    console.log('New avatar received from another user:', avatarData);
-    // You can draw it on canvas or store it
+socket.on('new-avatar', function (avatars) {
+    console.log('New avatar received from another user:', avatars);
+    otherPlayers[avatars.userId] = avatars;
+});
+
+socket.on("location-update", function (loc) {
+    if (!otherPlayers[loc.userId]) return;
+    otherPlayers[loc.userId].x = loc.x;
+    otherPlayers[loc.userId].y = loc.y;
 });
 
 /* ------------------------------------ */
 // FUNCTIONS:
 
-// UserID creation & memory
 function getOrCreateUserId() {
     // check if we have a userID already in local storage
     // if yes, return it ELSE create one and return it
@@ -196,7 +234,6 @@ function getOrCreateUserId() {
     return id;
 }
 
-// Sending name to Server
 function sendName() {
     myUsername = nameInput.value;
 
@@ -221,7 +258,6 @@ function sendName() {
     isDrawing = true;
 }
 
-// Sending avatar to Sever
 function submitAvatar() {
     // remove empty stroke arrays
     const cleanedDrawing = myDrawingPoints.filter(strokeArr => strokeArr.length > 0);
@@ -237,6 +273,29 @@ function submitAvatar() {
     // start showing the map
     showMap = true;
     document.getElementById('requestOrientationButton').style.display = 'block';
+}
+
+function drawAvatar(drawing, username = "") {
+    // avatar
+    drawingContext.setLineDash([]);
+    strokeWeight(10);
+    noFill();
+    for (let strokeArr of drawing) {
+        beginShape();
+        for (let pt of strokeArr) {
+            vertex(pt.x, pt.y);
+        }
+        endShape();
+    }
+
+    // username text
+    if (username) {
+        noStroke();
+        fill(0);
+        textSize(100);
+        textAlign(CENTER, BOTTOM);
+        text(username, 200, 200);
+    }
 }
 
 function handleOrientation(eventData){

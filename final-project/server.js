@@ -58,12 +58,22 @@ io.on('connection', (socket) => {
         console.log('All Avatars received:', avatars);
 
         // Send to other users this info
-        socket.broadcast.emit(
-            'new-avatar', {
+        socket.broadcast.emit('new-avatar', {
             userId: myUserId,
             username: userInfo.username,
             drawing: data
         });
+    });
+
+    socket.on("update-location", (data) => {
+        // store location
+        if (!avatars[data.userId]) return;
+    
+        avatars[data.userId].x = data.x;
+        avatars[data.userId].y = data.y;
+    
+        // broadcast to all other clients
+        socket.broadcast.emit("location-update", data);
     });
 
     socket.on("disconnect", function(){
