@@ -17,7 +17,7 @@ if(myUsername){
     myUsername = "";
 }
 
-// When "Button" is clicked or "Enter Key" entered:
+// When "Button" is clicked or "Enter" Key entered:
 // calls for sendName()
 nameSubmit.addEventListener('click', sendName);
 nameInput.addEventListener('keyup', (e) => {
@@ -29,6 +29,28 @@ nameInput.addEventListener('keyup', (e) => {
 const avatarSubmit = document.getElementById("avatarSubmit");
 avatarSubmit.addEventListener("click", submitAvatar);
 
+// When "Arrow" key is pressed
+// location movement boolean
+window.addEventListener('keydown', (e) => {
+    switch(e.key){
+        case "ArrowLeft":  moveLeft = true; break;
+        case "ArrowRight": moveRight = true; break;
+        case "ArrowUp":    moveUp = true; break;
+        case "ArrowDown":  moveDown = true; break;
+    }
+});
+
+// When "Arrow" key is released
+// location movement boolean
+window.addEventListener('keyup', (e) => {
+    switch(e.key){
+        case "ArrowLeft":  moveLeft = false; break;
+        case "ArrowRight": moveRight = false; break;
+        case "ArrowUp":    moveUp = false; break;
+        case "ArrowDown":  moveDown = false; break;
+    }
+});
+
 /* ------------------------------------ */
 // CANVAS SECTION
 
@@ -39,14 +61,33 @@ let isDrawing = false;
 // drawing the map
 let showMap = false;
 let alpha, beta, gamma = 0;
-let mapW = 4000;
-let mapH = 4000;
+let mapW = 2000;
+let mapH = 2000;
 let otherPlayers = {};
+
+// letters
+let letters = [];
+let pushRadius = 50;
+let pushStrength = 30;
+let minDistance = 20;
+let lastVisibleLetters = "";
+let animalNames = [];
+let lettersUsedInAnimals = new Set();
 
 // XY-Coodinates of user & map
 let mapX = 0;
 let mapY = 0;
-let moveScale = 1;
+let moveScale = 2;
+let lastMapX = null;
+let lastMapY = null;
+
+// Computer testing
+let moveLeft = false;
+let moveRight = false;
+let moveUp = false;
+let moveDown = false;
+
+// Buttons Names
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
@@ -88,20 +129,20 @@ function draw(){
     // MAP SECTION
     if (showMap == true){
         // Movement Condition:
-            // How much tilt to move direction
-            if (round(gamma) > 35){
+            // how much tilt to move direction
+            if (round(gamma) > 35 || moveRight){
                 // console.log('the user is moving right');
                 mapX = mapX - moveScale;
             } 
-            if (round(gamma) < -35){
+            if (round(gamma) < -35 || moveLeft){
                 // console.log('the user is moving left');
                 mapX = mapX + moveScale;
             }
-            if (round(beta) > 25){
+            if (round(beta) > 25 || moveDown){
                 // console.log('the user is moving dowm');
                 mapY = mapY - moveScale;
             }
-            if (round(beta) < -25){
+            if (round(beta) < -25 || moveUp){
                 // console.log('the user is moving up');
                 mapY = mapY + moveScale;
             }
@@ -124,25 +165,132 @@ function draw(){
             push();
                 translate(width/2 + mapX, height/2 + mapY);
                 fill(14, 99, 107);
-                rect(0,0,mapW,mapH);
+                rect(0 , 0, mapW, mapH);
 
-                // draw other users
+                // draw ALL players in map coordinates
                 for (let userId in otherPlayers) {
-                    // Skip drawing your own avatar here
-                    if (userId === myUserId) continue;
-
-                    // other users
                     let p = otherPlayers[userId];
                     push();
-                        // Position relative to the map
-                        translate(- width/8, - height/8);
-                        translate(p.x, p.y);
-                
+                        translate(p.x - width/8, p.y - width/8);
                         scale(0.25);
                         drawAvatar(p.drawing, p.username);
                     pop();
                 }
             pop();
+        
+
+        // Letter condition & drawing
+            for (let i = 0; i < letters.length; i++) {
+                let s = letters[i];
+                let dx = (s.x + width/2 + mapX) - width/2;
+                let dy = (s.y + height/2 + mapY) - height/2;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                
+                // if within pushing distance
+                if (distance < pushRadius) {
+                    // calculate vector direction
+                    // move letters away along that vector
+                    let ux = dx / distance;
+                    let uy = dy / distance;
+                    s.x += ux * pushStrength;
+                    s.y += uy * pushStrength;
+
+                    // keep letters inside map
+                    if (s.x < 0) {
+                        s.x = minDistance;
+                    }
+                    if (s.x > mapW) {
+                        s.x = mapW - minDistance;
+                    }
+                    if (s.y < 0) {
+                        s.y = minDistance;
+                    }
+                    if (s.y > mapH) {
+                        s.y = mapH - minDistance;
+                    }
+
+                    // Prevent overlapping with other letters
+                    for (let j = 0; j < letters.length; j++) {
+                        if (i !== j){
+                            let other = letters[j];
+                            let dx2 = s.x - other.x;
+                            let dy2 = s.y - other.y;
+                            let d = Math.sqrt(dx2*dx2 + dy2*dy2);
+
+                            if (d < minDistance && d > 0) {
+                                let ux2 = dx2 / d;
+                                let uy2 = dy2 / d;
+                                let overlap = minDistance - d;
+                                s.x += ux2 * overlap * 0.5;
+                                s.y += uy2 * overlap * 0.5;
+                                other.x -= ux2 * overlap * 0.5;
+                                other.y -= uy2 * overlap * 0.5;
+                            }
+                        }
+                    }
+                    
+                    // send the updated letters positions
+                    socket.emit("push-letters", letters);
+                } else {
+                    // letters drawing
+                    push();
+                        translate(width/2 + mapX, height/2 + mapY);
+                        
+                        // If the letter is used in a possible animal, glow green
+                        if (lettersUsedInAnimals.has(s.letter.toUpperCase())) {
+                            fill(0, 255, 0);
+                            stroke(0, 200, 0);
+                            strokeWeight(2);
+                        } else {
+                            fill(194, 178, 128);
+                            noStroke();
+                        }
+
+                        textSize(16);
+                        textAlign(CENTER, CENTER);
+                        text(s.letter, s.x, s.y);
+                    pop();
+                }
+            }
+
+            // Get letters currently visible on the screen
+            const visibleLetters = letters.filter(l => {
+                const screenX = l.x + width/2 + mapX;
+                const screenY = l.y + height/2 + mapY;
+                return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
+            });
+
+            // Convert to string
+            const currentLetters = visibleLetters.map(l => l.letter).join(' ');
+
+            // Only record if changed
+            if (currentLetters !== lastVisibleLetters) {
+                // keep track of current letters
+                lastVisibleLetters = currentLetters;
+                // console.log("Letters in view:", currentLetters);
+
+                const lettersArray = visibleLetters.map(l => l.letter.toUpperCase());
+
+                // Find possible animals
+                const possibleAnimals = animalNames.filter(name => canFormWord(name, lettersArray));
+                console.log("Possible animals:", possibleAnimals);
+
+                // For each possible animal, find which letters are used
+                lettersUsedInAnimals.clear();
+                for (let animal of possibleAnimals) {
+                    let tempLetters = [...lettersArray];
+                    for (let char of animal) {
+                        const index = tempLetters.indexOf(char);
+                        if (index !== -1) {
+                            lettersUsedInAnimals.add(char);
+                            tempLetters.splice(index, 1);
+                        }
+                    }
+                }
+                // console.log("Letters used in possible animals:", Array.from(lettersUsedInAnimals).join(', '));
+            }
+
+        //
 
         // My avatar (static)
             push();
@@ -151,38 +299,76 @@ function draw(){
                 drawAvatar(myDrawingPoints, myUsername);
             pop();
 
-        // Direction Arrow Around Avatar
-            let L = 40;
+        // U-shaped Scoop in front of Avatar
             push();
                 translate(width/2, height/2);
-
+                
                 // convert tilt to an angle
                 let angle = atan2(beta, gamma);
+                let stemLength = 60;
+                let scoopWidth = 60;
+                let scoopDepth = 30;
 
-                // draw arrow
                 rotate(angle);
-                strokeWeight(6);
-                line(L, 0, L + 15, 0);
-                triangle(
-                    L + 20, 0,
-                    L + 10, 10,
-                    L + 10, -10
-                );
+                stroke(0, 150, 0);
+                strokeWeight(4);
+                noFill();
+                line(20, 0, stemLength - scoopDepth, 0);
+                beginShape();
+                    vertex(stemLength, scoopWidth / 2);
+                    bezierVertex(stemLength - scoopDepth, scoopWidth / 2,
+                                stemLength - scoopDepth, - scoopWidth / 2,
+                                stemLength, - scoopWidth / 2);
+                endShape();
+
             pop();
 
-        // TESTING: orientation state
-            fill(0);
-            strokeWeight(1);
-            textSize(12);
-            text("beta: " + round(beta), width/2, 74);
-            text("gamma: " + round(gamma), width/2, 87);
+        // if moved send location to server
+        if (mapX !== lastMapX || mapY !== lastMapY) {
+            socket.emit("update-location", { userId: myUserId, x: mapX, y: mapY });
+
+            lastMapX = mapX;
+            lastMapY = mapY;
+            // console.log("location changed");
+        }
+        
     } else {
         document.querySelector('#requestOrientationButton').style.display = "none";
     }
 }
 
 /* ------------------------------------ */
-// DRAWING TOOL
+// SOCKETS:
+if(location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')){
+    socket = io({path: "/YOURPATH-and-PORT/socket.io"});  // yields '/leon/port-4100/socket.io' or '/socket.io'
+}else{
+    socket = io(); 
+}
+
+socket.on('new-avatar', function (avatars) {
+    console.log('New avatar received from another user:', avatars);
+    otherPlayers[avatars.userId] = avatars;
+});
+
+socket.on("location-update", function (data) {
+    if (otherPlayers[data.userId]) {
+        otherPlayers[data.userId].x = - data.x;
+        otherPlayers[data.userId].y = - data.y;
+    }
+    console.log("change of location",otherPlayers);
+});
+
+socket.on("letters-create", function (particles) {
+    letters = particles;
+});
+
+socket.on("animal-list", (names) => {
+    console.log("Available animals:", names);
+    animalNames = names.map(n => n.toUpperCase());
+});
+
+/* ------------------------------------ */
+// FUNCTIONS:
 
 function touchStarted() {
     if (isDrawing) {
@@ -200,28 +386,6 @@ function touchMoved() {
 
 function touchEnded() {
 }
-
-/* ------------------------------------ */
-// SOCKETS:
-if(location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')){
-    socket = io({path: "/YOURPATH-and-PORT/socket.io"});  // yields '/leon/port-4100/socket.io' or '/socket.io'
-}else{
-    socket = io(); 
-}
-
-socket.on('new-avatar', function (avatars) {
-    console.log('New avatar received from another user:', avatars);
-    otherPlayers[avatars.userId] = avatars;
-});
-
-socket.on("location-update", function (loc) {
-    if (!otherPlayers[loc.userId]) return;
-    otherPlayers[loc.userId].x = loc.x;
-    otherPlayers[loc.userId].y = loc.y;
-});
-
-/* ------------------------------------ */
-// FUNCTIONS:
 
 function getOrCreateUserId() {
     // check if we have a userID already in local storage
@@ -305,4 +469,14 @@ function handleOrientation(eventData){
     alpha = eventData.alpha;
     beta = eventData.beta;
     gamma = eventData.gamma;
+}
+
+function canFormWord(word, availableLetters) {
+    const lettersCopy = [...availableLetters];
+    for (let char of word) {
+        const index = lettersCopy.indexOf(char);
+        if (index === -1) return false;
+        lettersCopy.splice(index, 1);
+    }
+    return true;
 }
