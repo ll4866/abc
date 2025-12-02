@@ -6,9 +6,7 @@ const nameSubmit = document.getElementById('nameSubmit');
 const myUserId = getOrCreateUserId();
 console.log('My userId:', myUserId);
 
-// Check if we have a username already
-// YES  -> have textbox contain previous local username
-// NO   -> have textbox be blank
+// check if client has a username already
 let myUsername = localStorage.getItem("chat-username");
 if(myUsername){
     console.log("my username is", myUsername);
@@ -17,21 +15,18 @@ if(myUsername){
     myUsername = "";
 }
 
-// When "Button" is clicked or "Enter" Key entered:
-// calls for sendName()
+// submitting name to server
 nameSubmit.addEventListener('click', sendName);
-nameInput.addEventListener('keyup', (e) => {
+nameInput.addEventListener('keyup', function (e) {
     if (e.key === 'Enter') sendName();
 });
 
-// When "Button" is clicked
-// sends the avatar to server
+// submitting avatar to server
 const avatarSubmit = document.getElementById("avatarSubmit");
 avatarSubmit.addEventListener("click", submitAvatar);
 
-// When "Arrow" key is pressed
-// location movement boolean
-window.addEventListener('keydown', (e) => {
+// convinience arrow key movement
+window.addEventListener('keydown', function(e) {
     switch(e.key){
         case "ArrowLeft":  moveLeft = true; break;
         case "ArrowRight": moveRight = true; break;
@@ -39,9 +34,6 @@ window.addEventListener('keydown', (e) => {
         case "ArrowDown":  moveDown = true; break;
     }
 });
-
-// When "Arrow" key is released
-// location movement boolean
 window.addEventListener('keyup', (e) => {
     switch(e.key){
         case "ArrowLeft":  moveLeft = false; break;
@@ -63,7 +55,10 @@ let showMap = false;
 let alpha, beta, gamma = 0;
 let mapW = 2000;
 let mapH = 2000;
+
+// map objects
 let otherPlayers = {};
+let foundAnimals = [];
 
 // letters
 let letters = [];
@@ -72,7 +67,13 @@ let pushStrength = 30;
 let minDistance = 20;
 let lastVisibleLetters = "";
 let animalNames = [];
-let lettersUsedInAnimals = new Set();
+let matchingLetters= new Set();
+let selectedLetters = "";
+
+let lastEmptyTapTime = 0;
+let lastEmptyTapPos = {x: 0, y: 0};
+const emptyTapThreshold = 400;
+const emptyTapRadius = 30;
 
 // XY-Coodinates of user & map
 let mapX = 0;
@@ -81,28 +82,23 @@ let moveScale = 2;
 let lastMapX = null;
 let lastMapY = null;
 
-// Computer testing
+// Convinience control testing
 let moveLeft = false;
 let moveRight = false;
 let moveUp = false;
 let moveDown = false;
-
-// Buttons Names
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
     canvas.parent("p5-canvas-container");
 }
 
-function draw(){    
-    /* ------------------------------------ */
-    // AVATAR SECTION
+function draw(){  
     background(255);
 
-    // When client has already named:
+    /* ------------------------------------ */
+    // AVATAR SECTION
     if (isDrawing){
-    
-        // show Button
         avatarSubmit.style.display = "block"; 
 
         // instructions
@@ -167,15 +163,23 @@ function draw(){
                 fill(14, 99, 107);
                 rect(0 , 0, mapW, mapH);
 
-                // draw ALL players in map coordinates
+                // draw other players
                 for (let userId in otherPlayers) {
                     let p = otherPlayers[userId];
                     push();
-                        translate(p.x - width/8, p.y - width/8);
+                        translate(p.x - width/8, p.y - height/8);
                         scale(0.25);
                         drawAvatar(p.drawing, p.username);
                     pop();
                 }
+
+                // draw all found animals
+                for (let a of foundAnimals) {
+                    push();
+                        translate(a.x, a.y);
+                        drawAnimal(a.info);
+                    pop();
+                }                
             pop();
         
 
@@ -189,7 +193,6 @@ function draw(){
                 // if within pushing distance
                 if (distance < pushRadius) {
                     // calculate vector direction
-                    // move letters away along that vector
                     let ux = dx / distance;
                     let uy = dy / distance;
                     s.x += ux * pushStrength;
@@ -209,7 +212,7 @@ function draw(){
                         s.y = mapH - minDistance;
                     }
 
-                    // Prevent overlapping with other letters
+                    // prevent overlapping with other letters
                     for (let j = 0; j < letters.length; j++) {
                         if (i !== j){
                             let other = letters[j];
@@ -217,6 +220,7 @@ function draw(){
                             let dy2 = s.y - other.y;
                             let d = Math.sqrt(dx2*dx2 + dy2*dy2);
 
+                            // if letters to close
                             if (d < minDistance && d > 0) {
                                 let ux2 = dx2 / d;
                                 let uy2 = dy2 / d;
@@ -237,7 +241,7 @@ function draw(){
                         translate(width/2 + mapX, height/2 + mapY);
                         
                         // If the letter is used in a possible animal, glow green
-                        if (lettersUsedInAnimals.has(s.letter.toUpperCase())) {
+                        if (matchingLetters.has(s.letter.toUpperCase())) {
                             fill(0, 255, 0);
                             stroke(0, 200, 0);
                             strokeWeight(2);
@@ -276,21 +280,23 @@ function draw(){
                 console.log("Possible animals:", possibleAnimals);
 
                 // For each possible animal, find which letters are used
-                lettersUsedInAnimals.clear();
+                matchingLetters.clear();
                 for (let animal of possibleAnimals) {
                     let tempLetters = [...lettersArray];
                     for (let char of animal) {
                         const index = tempLetters.indexOf(char);
                         if (index !== -1) {
-                            lettersUsedInAnimals.add(char);
+                            matchingLetters.add(char);
                             tempLetters.splice(index, 1);
                         }
                     }
                 }
-                // console.log("Letters used in possible animals:", Array.from(lettersUsedInAnimals).join(', '));
-            }
+                // console.log("Letters used in possible animals:", Array.from(matchingLetters).join(', '));
 
-        //
+                // Ensure selectedLetters only contains letters that are still visible
+                const visibleLettersSet = new Set(visibleLetters.map(l => l.letter.toLowerCase()));
+                selectedLetters = selectedLetters.split('').filter(l => visibleLettersSet.has(l)).join('');
+            }
 
         // My avatar (static)
             push();
@@ -332,6 +338,7 @@ function draw(){
             // console.log("location changed");
         }
         
+
     } else {
         document.querySelector('#requestOrientationButton').style.display = "none";
     }
@@ -359,7 +366,7 @@ socket.on("location-update", function (data) {
 });
 
 socket.on("letters-create", function (particles) {
-    letters = particles;
+    letters = particles.map(l => ({ ...l, selected: false }));
 });
 
 socket.on("animal-list", (names) => {
@@ -367,12 +374,92 @@ socket.on("animal-list", (names) => {
     animalNames = names.map(n => n.toUpperCase());
 });
 
+socket.on("animal-found", (data) => {
+    console.log("Animal found:", data);
+    foundAnimals.push(data);
+});
 /* ------------------------------------ */
 // FUNCTIONS:
 
 function touchStarted() {
     if (isDrawing) {
         myDrawingPoints.push([]);
+    }
+
+    if (showMap){
+
+        let tappedLetter = false;
+
+        for (let t of touches) {
+            const touchX = t.x;
+            const touchY = t.y;
+    
+            for (let l of letters) {
+                // Convert letter position to screen coordinates
+                let screenX = l.x + width/2 + mapX;
+                let screenY = l.y + height/2 + mapY;
+            
+                // Check if touch is within radius of letter
+                let d = dist(touchX, touchY, screenX, screenY);
+                if (d < 20) { // 20px tap radius
+                    tappedLetter = true;
+
+                    const letter = l.letter.toLowerCase();
+            
+                    if (!l.selected) {
+                        // select this specific letter object
+                        selectedLetters += letter;
+                        l.selected = true;
+                    } else {
+                        // deselect this letter object
+                        const index = selectedLetters.indexOf(letter);
+                        selectedLetters = selectedLetters.slice(0, index) + selectedLetters.slice(index + 1);
+                        l.selected = false;
+                    }
+    
+                    console.log("Selected letters:", selectedLetters);
+
+                    // Check if selectedLetters matches any animalNames
+                    const selectedUpper = selectedLetters.toUpperCase();
+                    for (let animal of animalNames) {
+                        if (selectedUpper === animal) {
+                            console.log("Found animal:", animal);
+                        
+                            // Send to socket
+                            socket.emit("found-animal", {
+                                animal: animal,
+                                x: mapX,
+                                y: mapY
+                            });
+                        
+                            // Clear selected letters AND deselect each letter object
+                            letters.forEach(l => {
+                                if (l.selected) l.selected = false;
+                            });
+                            selectedLetters = "";
+                        
+                            break; // stop checking once matched
+                        }
+                        
+                    }
+                }
+            }
+            // Handle double-tap on empty space
+            if (!tappedLetter) {
+                const now = millis();
+                const distFromLast = dist(touchX, touchY, lastEmptyTapPos.x, lastEmptyTapPos.y);
+
+                if (now - lastEmptyTapTime < emptyTapThreshold && distFromLast < emptyTapRadius) {
+                    // double-tap detected: clear all selections
+                    letters.forEach(ltr => ltr.selected = false);
+                    selectedLetters = "";
+                    console.log("Cleared all selected letters!");
+                }
+
+                lastEmptyTapTime = now;
+                lastEmptyTapPos = {x: touchX, y: touchY};
+            }
+        }
     }
 }
 
@@ -479,4 +566,44 @@ function canFormWord(word, availableLetters) {
         lettersCopy.splice(index, 1);
     }
     return true;
+}
+
+function drawAnimal(a) {
+    a.rect = a.rect || { x: [], y: [], w: [], h: [], r: [], rgb: [], order: [] };
+    a.ellipse = a.ellipse || { x: [], y: [], w: [], h: [], rgb: [], order: [] };
+    a.triangle = a.triangle || { x1: [], y1: [], x2: [], y2: [], x3: [], y3: [], rgb: [], order: [] };
+    a.line = a.line || { x1: [], y1: [], x2: [], y2: [], rgb: [], order: [] };
+    a.bezier = a.bezier || { x1: [], y1: [], cx1: [], cy1: [], cx2: [], cy2: [], x2: [], y2: [], rgb: [], order: [], filled: [] };
+
+    let elements = [];
+
+    // Collect elements (rect, ellipse, triangle, line, bezier)
+    for (let i = 0; i < a.rect.x.length; i++)
+        elements.push({ type: "rect", ...a.rect, index: i });
+
+    for (let i = 0; i < a.ellipse.x.length; i++)
+        elements.push({ type: "ellipse", ...a.ellipse, index: i });
+
+    for (let i = 0; i < a.triangle.x1.length; i++)
+        elements.push({ type: "triangle", ...a.triangle, index: i });
+
+    for (let i = 0; i < a.line.x1.length; i++)
+        elements.push({ type: "line", ...a.line, index: i });
+
+    for (let i = 0; i < a.bezier.x1.length; i++)
+        elements.push({ type: "bezier", ...a.bezier, index: i });
+
+    elements.sort((x, y) => x.order[x.index] - y.order[y.index]);
+
+    for (let e of elements) {
+        if (e.type === "rect") { noStroke(); fill(...e.rgb[e.index]); rect(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index], e.r[e.index]); }
+        if (e.type === "ellipse") { noStroke(); fill(...e.rgb[e.index]); ellipse(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index]); }
+        if (e.type === "triangle") { noStroke(); fill(...e.rgb[e.index]); triangle(e.x1[e.index], e.y1[e.index], e.x2[e.index], e.y2[e.index], e.x3[e.index], e.y3[e.index]); }
+        if (e.type === "line") { stroke(...e.rgb[e.index]); strokeWeight(2); line(e.x1[e.index], e.y1[e.index], e.x2[e.index], e.y2[e.index]); }
+        if (e.type === "bezier") {
+            strokeWeight(2);
+            if (e.filled[e.index]) { fill(...e.rgb[e.index]); noStroke(); beginShape(); vertex(e.x1[e.index], e.y1[e.index]); bezierVertex(e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]); endShape(CLOSE); }
+            else { noFill(); stroke(...e.rgb[e.index]); bezier(e.x1[e.index], e.y1[e.index], e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]); }
+        }
+    }
 }

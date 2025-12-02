@@ -53,7 +53,14 @@ try {
 let animalData = {};
 try {
     const file = fs.readFileSync('animal.json', 'utf8');
-    animalData = JSON.parse(file);
+    const raw = JSON.parse(file);
+    
+    // create a lookup with lowercase keys
+    animalData = {};
+    for (let k in raw) {
+        animalData[k.toLowerCase()] = raw[k];
+    }
+
     console.log("Animal data loaded:", Object.keys(animalData));
 } catch (err) {
     console.log("Could not load animal.json:", err);
@@ -160,6 +167,23 @@ io.on('connection', (socket) => {
         lettersParticles = updatedSand;
         io.emit("letters-create", lettersParticles);
         saveHistory();
+    });
+
+    socket.on("found-animal", function (data){
+        const { animal, x, y } = data;
+        const info = animalData[animal.toLowerCase()] || {};
+
+        // Create object to send
+        const payload = {
+            animal,
+            x,
+            y,
+            info
+        };
+
+        // Broadcast to all clients
+        io.emit("animal-found", payload);
+        console.log("Animal found:", payload);
     });
 
     socket.on("disconnect", function(){
