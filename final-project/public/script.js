@@ -1,3 +1,10 @@
+// box machine of catching toys can use similar mechanism
+// resolve the screen from scrolling
+// maybe pushing the letters to form a word intead of tapping them
+// more collaborative (roles each person a letter)
+// maybe adding parts of animals together into somehting
+// showcase the word tapped
+
 /* ------------------------------------ */
 // NAME PAGE
 const nameOverlay = document.getElementById('nameOverlay');
@@ -34,7 +41,7 @@ window.addEventListener('keydown', function(e) {
         case "ArrowDown":  moveDown = true; break;
     }
 });
-window.addEventListener('keyup', (e) => {
+window.addEventListener('keyup', function (e) {
     switch(e.key){
         case "ArrowLeft":  moveLeft = false; break;
         case "ArrowRight": moveRight = false; break;
@@ -182,8 +189,27 @@ function draw(){
                 }                
             pop();
         
+        // My avatar (static)
+            push();
+                translate(3 * width/8, 3 * height/8);
+                scale(0.25);
+                drawAvatar(myDrawingPoints, myUsername);
+            pop();
 
-        // Letter condition & drawing
+        // Scoop
+            push();
+                translate(width/2, height/2);
+                let angle = atan2(beta, gamma);
+                rotate(angle);
+                stroke(0, 150, 0);
+                strokeWeight(4);
+                noFill();
+                line(50, 0, 0, 0);
+                line(50, 45, 50, -45);
+            pop();
+
+
+        // Letter drawing & conditions
             for (let i = 0; i < letters.length; i++) {
                 let s = letters[i];
                 let dx = (s.x + width/2 + mapX) - width/2;
@@ -220,11 +246,13 @@ function draw(){
                             let dy2 = s.y - other.y;
                             let d = Math.sqrt(dx2*dx2 + dy2*dy2);
 
-                            // if letters to close
+                            // if letters are too close
                             if (d < minDistance && d > 0) {
                                 let ux2 = dx2 / d;
                                 let uy2 = dy2 / d;
                                 let overlap = minDistance - d;
+
+                                // push them away from each other
                                 s.x += ux2 * overlap * 0.5;
                                 s.y += uy2 * overlap * 0.5;
                                 other.x -= ux2 * overlap * 0.5;
@@ -240,7 +268,8 @@ function draw(){
                     push();
                         translate(width/2 + mapX, height/2 + mapY);
                         
-                        // If the letter is used in a possible animal, glow green
+                        // color change dependented upon
+                        // the letter matches a letter used in a possible animal
                         if (matchingLetters.has(s.letter.toUpperCase())) {
                             fill(0, 255, 0);
                             stroke(0, 200, 0);
@@ -249,7 +278,6 @@ function draw(){
                             fill(194, 178, 128);
                             noStroke();
                         }
-
                         textSize(16);
                         textAlign(CENTER, CENTER);
                         text(s.letter, s.x, s.y);
@@ -257,88 +285,56 @@ function draw(){
                 }
             }
 
-            // Get letters currently visible on the screen
-            const visibleLetters = letters.filter(l => {
-                const screenX = l.x + width/2 + mapX;
-                const screenY = l.y + height/2 + mapY;
-                return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
-            });
+            // Possible combination
+                // record letters that are currently visible on the screen
+                const visibleLetters = letters.filter(l => {
+                    const screenX = l.x + width/2 + mapX;
+                    const screenY = l.y + height/2 + mapY;
+                    return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
+                });
 
-            // Convert to string
-            const currentLetters = visibleLetters.map(l => l.letter).join(' ');
+                // convert to string
+                const currentLetters = visibleLetters.map(l => l.letter).join(' ');
 
-            // Only record if changed
-            if (currentLetters !== lastVisibleLetters) {
-                // keep track of current letters
-                lastVisibleLetters = currentLetters;
-                // console.log("Letters in view:", currentLetters);
+                // update visible letters list
+                if (currentLetters !== lastVisibleLetters) {
+                    lastVisibleLetters = currentLetters;
+                    // console.log("Letters in view:", currentLetters);
 
-                const lettersArray = visibleLetters.map(l => l.letter.toUpperCase());
+                    // all words uppercase for convinience
+                    const lettersArray = visibleLetters.map(l => l.letter.toUpperCase());
 
-                // Find possible animals
-                const possibleAnimals = animalNames.filter(name => canFormWord(name, lettersArray));
-                console.log("Possible animals:", possibleAnimals);
+                    // possible animals that could be made with the list of letters
+                    const possibleAnimals = animalNames.filter(name => canFormWord(name, lettersArray));
+                    console.log("Possible animals:", possibleAnimals);
 
-                // For each possible animal, find which letters are used
-                matchingLetters.clear();
-                for (let animal of possibleAnimals) {
-                    let tempLetters = [...lettersArray];
-                    for (let char of animal) {
-                        const index = tempLetters.indexOf(char);
-                        if (index !== -1) {
-                            matchingLetters.add(char);
-                            tempLetters.splice(index, 1);
+                    // add to list letters that can make up a possible 
+                    matchingLetters.clear();
+                    for (let animal of possibleAnimals) {
+                        let tempLetters = [...lettersArray];
+                        for (let char of animal) {
+                            const index = tempLetters.indexOf(char);
+                            if (index !== -1) {
+                                matchingLetters.add(char);
+                                tempLetters.splice(index, 1);
+                            }
                         }
                     }
+                    // console.log("Letters used in possible animals:", Array.from(matchingLetters).join(', '));
+
+                    // ensure selectedLetters only contains letters that are still visible
+                    const visibleLettersSet = new Set(visibleLetters.map(l => l.letter.toLowerCase()));
+                    selectedLetters = selectedLetters.split('').filter(l => visibleLettersSet.has(l)).join('');
                 }
-                // console.log("Letters used in possible animals:", Array.from(matchingLetters).join(', '));
-
-                // Ensure selectedLetters only contains letters that are still visible
-                const visibleLettersSet = new Set(visibleLetters.map(l => l.letter.toLowerCase()));
-                selectedLetters = selectedLetters.split('').filter(l => visibleLettersSet.has(l)).join('');
-            }
-
-        // My avatar (static)
-            push();
-                translate(3 * width/8, 3 * height/8);
-                scale(0.25);
-                drawAvatar(myDrawingPoints, myUsername);
-            pop();
-
-        // U-shaped Scoop in front of Avatar
-            push();
-                translate(width/2, height/2);
-                
-                // convert tilt to an angle
-                let angle = atan2(beta, gamma);
-                let stemLength = 60;
-                let scoopWidth = 60;
-                let scoopDepth = 30;
-
-                rotate(angle);
-                stroke(0, 150, 0);
-                strokeWeight(4);
-                noFill();
-                line(20, 0, stemLength - scoopDepth, 0);
-                beginShape();
-                    vertex(stemLength, scoopWidth / 2);
-                    bezierVertex(stemLength - scoopDepth, scoopWidth / 2,
-                                stemLength - scoopDepth, - scoopWidth / 2,
-                                stemLength, - scoopWidth / 2);
-                endShape();
-
-            pop();
 
         // if moved send location to server
-        if (mapX !== lastMapX || mapY !== lastMapY) {
-            socket.emit("update-location", { userId: myUserId, x: mapX, y: mapY });
+            if (mapX !== lastMapX || mapY !== lastMapY) {
+                socket.emit("update-location", { userId: myUserId, x: mapX, y: mapY });
 
-            lastMapX = mapX;
-            lastMapY = mapY;
-            // console.log("location changed");
-        }
-        
-
+                lastMapX = mapX;
+                lastMapY = mapY;
+                // console.log("location changed");
+            }
     } else {
         document.querySelector('#requestOrientationButton').style.display = "none";
     }
@@ -362,7 +358,7 @@ socket.on("location-update", function (data) {
         otherPlayers[data.userId].x = - data.x;
         otherPlayers[data.userId].y = - data.y;
     }
-    console.log("change of location",otherPlayers);
+    // console.log("change of location",otherPlayers);
 });
 
 socket.on("letters-create", function (particles) {
@@ -387,9 +383,7 @@ function touchStarted() {
     }
 
     if (showMap){
-
         let tappedLetter = false;
-
         for (let t of touches) {
             const touchX = t.x;
             const touchY = t.y;
@@ -569,12 +563,6 @@ function canFormWord(word, availableLetters) {
 }
 
 function drawAnimal(a) {
-    a.rect = a.rect || { x: [], y: [], w: [], h: [], r: [], rgb: [], order: [] };
-    a.ellipse = a.ellipse || { x: [], y: [], w: [], h: [], rgb: [], order: [] };
-    a.triangle = a.triangle || { x1: [], y1: [], x2: [], y2: [], x3: [], y3: [], rgb: [], order: [] };
-    a.line = a.line || { x1: [], y1: [], x2: [], y2: [], rgb: [], order: [] };
-    a.bezier = a.bezier || { x1: [], y1: [], cx1: [], cy1: [], cx2: [], cy2: [], x2: [], y2: [], rgb: [], order: [], filled: [] };
-
     let elements = [];
 
     // Collect elements (rect, ellipse, triangle, line, bezier)
