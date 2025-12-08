@@ -1,9 +1,3 @@
-// maybe pushing the letters to form a word intead of tapping them
-// more collaborative (roles each person a letter)
-// showcase the word tapped
-
-// maybe adding parts of animals together into somehting
-
 /* ------------------------------------ */
 // NAME PAGE
 const nameOverlay = document.getElementById('nameOverlay');
@@ -79,12 +73,8 @@ let letters = [];
 let minDistance = 25;
 let animalNames = [];
 let lastPossibleAnimalsString = "";
-
-const orderXThreshold = 50;
-const orderYThreshold = 40;
-let lastVisibleLetters = "";
-let matchingLetters= new Set();
-let matchingLetterIndices = new Set(); 
+const orderXThreshold = 100;
+const orderYThreshold = 80;
 let visibleAnimalMatches = []; 
 
 // XY-Coodinates of user & map
@@ -106,6 +96,10 @@ let moveDown = false;
 let grabbing = false;
 let grabbedLetter = null;
 let lastLetterPositions = new Map();
+
+// Choosing box
+let wordTapped = false;
+let selectedAnimalIndex = null;
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
@@ -277,6 +271,7 @@ function draw(){
                     grabbedLetter.x = tip.x - mapX;
                     grabbedLetter.y = tip.y - mapY;
                 }
+                updateMatchingLetters();
 
                 // keep letters inside map
                 if (s.x < offset) {
@@ -396,8 +391,6 @@ function draw(){
                 // console.log("location changed");
             }
 
-            updateMatchingLetters();
-
         // Testing for multiple devices:
             // computer arrow control rotation
             if(beta === undefined)  beta = 0;
@@ -410,6 +403,11 @@ function draw(){
             textAlign(LEFT);
             text("beta:"  + round(beta), width - 100, 5);
             text("gamma:" + round(gamma), width - 100, 20);
+
+        // info
+        if (wordTapped) {
+            drawTabBox();
+        } 
     }
 }
 
@@ -447,6 +445,7 @@ socket.on("letters-moved", (data) => {
         letters[index].x = x;
         letters[index].y = y;
     }
+    updateMatchingLetters();
 });
 
 socket.on("animal-list", (names) => {
@@ -465,19 +464,96 @@ function touchStarted() {
     if (isDrawing) {
         myDrawingPoints.push([]);
     }
-
+    
     if (showMap){
         // Check if GRAB button is pressed
         for (let t of touches) {
             const touchX = t.x;
             const touchY = t.y;
 
+            if (wordTapped) {
+                const boxWidth = 300;
+
+                // compute dynamic height like drawTabBox
+                const numRows = Math.ceil(visibleAnimalMatches.length / 2);
+                const rowHeight = 22;
+                const paddingTop = 35;
+                const paddingBottom = 50;
+                const boxHeight = paddingTop + numRows * rowHeight + paddingBottom;
+
+                const boxX = width/2 - boxWidth/2;
+                const boxY = height/2 - boxHeight/2;
+                
+                const closeSize = 20;
+                const closeX = boxX + boxWidth - closeSize - 5;
+                const closeY = boxY + 5;
+
+                if (touchX >= closeX && touchX <= closeX + closeSize &&
+                    touchY >= closeY && touchY <= closeY + closeSize) {
+                    wordTapped = false;
+                    console.log("Tab closed via touch");
+                    return;
+                }
+
+                // List of animals
+                const columnWidth = (boxWidth - 30) / 2;
+                for (let i = 0; i < visibleAnimalMatches.length; i++) {
+                    let col = i % 2;
+                    let row = Math.floor(i / 2);
+
+                    let x1 = boxX + 10 + col * columnWidth;
+                    let y1 = boxY + paddingTop + row * rowHeight;
+                    let x2 = x1 + columnWidth - 10;
+                    let y2 = y1 + rowHeight;
+
+                    if (touchX >= x1 && touchX <= x2 &&
+                        touchY >= y1 && touchY <= y2) {
+                        selectedAnimalIndex = i;
+                        return;
+                    }
+                }
+
+                // Submit button 
+                const submitHeight = 30, submitWidth = boxWidth - 20;
+                const submitX = boxX + 10, submitY = boxY + boxHeight - submitHeight - 10;
+                if (touchX >= submitX && touchX <= submitX + submitWidth && 
+                    touchY >= submitY && touchY <= submitY + submitHeight
+                ) {
+                    if (selectedAnimalIndex !== null) { 
+                        console.log("Selected animal:", visibleAnimalMatches[selectedAnimalIndex].animal); 
+                        
+                        const selectedAnimal = visibleAnimalMatches[selectedAnimalIndex];
+                        for (let idx of selectedAnimal.letterIndices) {
+                            letters[idx].x = random(minDistance, mapW - minDistance);
+                            letters[idx].y = random(minDistance, mapH - minDistance);
+                        }
+
+                        let sumX = 0, sumY = 0;
+                        for (let pos of selectedAnimal.positions) {
+                            sumX += pos.x;
+                            sumY += pos.y;
+                        }
+                        const centerX = sumX / selectedAnimal.positions.length;
+                        const centerY = sumY / selectedAnimal.positions.length;
+
+                        socket.emit("animal-found", {
+                            animal: selectedAnimal.animal,
+                            x: centerX,
+                            y: centerY
+                        });
+
+                        wordTapped = false;
+                        selectedAnimalIndex = null;
+                    }
+                }
+            }
+
             let btnX = width / 2;
             let btnY = height - 100;
             let btnRadius = 40;
             let d = dist(touchX, touchY, btnX, btnY);
 
-            if (d < btnRadius) {
+            if (d < btnRadius && !wordTapped) {
                 grabbedLetter = getClosestLetterToClaw();
 
                 if(grabbing == false ){
@@ -488,6 +564,8 @@ function touchStarted() {
                     // console.log("grabbing state: released");
                     grabbedLetter = null;
                 }
+            } else {
+                checkWordClusterTap(touchX, touchY);
             }
         }
     }
@@ -759,48 +837,32 @@ function updateMatchingLetters() {
     const possibleAnimals = animalNames.filter(name => canFormWord(name, availableLetters));
     const possibleAnimalsStr = possibleAnimals.slice().sort().join(",");
     if (possibleAnimalsStr !== lastPossibleAnimalsString) {
-        console.log("Possible animals:", possibleAnimals);
+        // console.log("Possible animals:", possibleAnimals);
         lastPossibleAnimalsString = possibleAnimalsStr;
-    }
 
-    // Reset sets
-    matchingLetterIndices.clear();
-    visibleAnimalMatches = [];
+        /// Step 3: cluster letters for each possible animal
+        visibleAnimalMatches = [];
+        for (let animal of possibleAnimals) {
+            // collect all letters for this animal
+            const animalLetters = [];
+            for (let char of animal) {
+                const candidates = visibleLetters.filter(l => l.letter === char);
+                animalLetters.push(candidates);
+            }
 
-    // Step 3: check letters in order & proximity
-    for (let animal of possibleAnimals) {
-        let sequenceIndices = [];
-        let sequencePositions = [];
-        let letterIndex = 0;
-        let lastLetterObj = null;
-
-        for (let l of visibleLetters) {
-            if (l.letter === animal[letterIndex]) {
-                if (lastLetterObj) {
-                    const dx = Math.abs(l.x - lastLetterObj.x);
-                    const dy = Math.abs(l.y - lastLetterObj.y);
-                    if (dx > orderXThreshold || dy > orderYThreshold) continue;
-                }
-
-                sequenceIndices.push(l.index);
-                sequencePositions.push({ x: l.x, y: l.y });
-                lastLetterObj = l;
-                letterIndex++;
-
-                if (letterIndex === animal.length) {
-                    visibleAnimalMatches.push({
-                        animal,
-                        letterIndices: sequenceIndices,
-                        positions: sequencePositions
-                    });
-                    sequenceIndices.forEach(idx => matchingLetterIndices.add(idx));
-                    break; // done with this animal
-                }
+            // find a cluster without reusing the same letter instance
+            const clusterMatch = findClusterUnique(animalLetters);
+            if (clusterMatch) {
+                visibleAnimalMatches.push({
+                    animal,
+                    letterIndices: clusterMatch.map(l => l.index),
+                    positions: clusterMatch.map(l => ({ x: l.x, y: l.y }))
+                });
+                // console.log(`Animal matched: ${animal}`, clusterMatch.map(l => l.letter));
             }
         }
-    }
+    } 
 }
-
 
 function canFormWord(word, availableLetters) {
     const lettersCopy = [...availableLetters];
@@ -810,4 +872,111 @@ function canFormWord(word, availableLetters) {
         lettersCopy.splice(index, 1);
     }
     return true;
+}
+
+function findClusterUnique(letterOptions, current = [], usedIndices = new Set(), depth = 0) {
+    if (depth === letterOptions.length) {
+        // check proximity between consecutive letters
+        for (let i = 1; i < current.length; i++) {
+            const dx = Math.abs(current[i].x - current[i - 1].x);
+            const dy = Math.abs(current[i].y - current[i - 1].y);
+            if (dx > orderXThreshold || dy > orderYThreshold) return null;
+        }
+        return current; // valid cluster
+    }
+
+    for (let candidate of letterOptions[depth]) {
+        if (usedIndices.has(candidate.index)) continue; // skip reused letters
+
+        usedIndices.add(candidate.index);
+        const nextCurrent = current.concat(candidate);
+        const result = findClusterUnique(letterOptions, nextCurrent, usedIndices, depth + 1);
+        if (result) return result; // return first clustered set found
+        usedIndices.delete(candidate.index); // backtrack
+    }
+
+    return null; // no cluster
+}
+
+function checkWordClusterTap(x, y) {
+    for (let match of visibleAnimalMatches) {
+        // Compute cluster center
+        let sumX = 0;
+        let sumY = 0;
+        for (let pos of match.positions) {
+            sumX += pos.x + width/2 + mapX;
+            sumY += pos.y + height/2 + mapY;
+        }
+        let centerX = sumX / match.positions.length;
+        let centerY = sumY / match.positions.length;
+
+        // radius around center to detect tap
+        let radius = 50; // adjust as needed
+        let d = dist(x, y, centerX, centerY);
+        if (d <= radius) {
+            wordTapped = true;
+            console.log("Cluster:", wordTapped);
+            return;
+        }
+    }
+}
+
+function drawTabBox() {
+    const boxWidth = 300;
+
+    // Compute rows based on 2 columns
+    const numRows = Math.ceil(visibleAnimalMatches.length / 2);
+    const rowHeight = 22;
+    const paddingTop = 35;
+    const paddingBottom = 50; // space for submit button
+    const boxHeight = paddingTop + numRows * rowHeight + paddingBottom;
+
+    const boxX = width/2 - boxWidth/2;
+    const boxY = height/2 - boxHeight/2;
+
+    fill(240); 
+    stroke(0); 
+    strokeWeight(1);
+    rect(boxX, boxY, boxWidth, boxHeight, 10);
+
+    // Close button
+    const closeSize = 20;
+    const closeX = boxX + boxWidth - closeSize - 5;
+    const closeY = boxY + 5;
+    fill(255, 100, 100); rect(closeX, closeY, closeSize, closeSize, 5);
+    fill(0); textSize(16); textAlign(CENTER, CENTER);
+    text("X", closeX + closeSize/2, closeY + closeSize/2);
+
+    // Title
+    fill(0);
+    textSize(18);
+    textAlign(LEFT, TOP);
+    text("Possible Animals:", boxX + 10, boxY + 10);
+
+    // List animals in 2 columns
+    const columnWidth = (boxWidth - 30) / 2; // spacing between columns
+    textSize(16);
+    textAlign(LEFT, TOP);
+
+    for (let i = 0; i < visibleAnimalMatches.length; i++) {
+        let animal = visibleAnimalMatches[i].animal;
+        let col = i % 2; // 0 = left, 1 = right
+        let row = Math.floor(i / 2);
+
+        let x = boxX + 10 + col * columnWidth;
+        let y = boxY + 35 + row * rowHeight;
+
+        fill(i === selectedAnimalIndex ? 'blue' : 'black');
+        text(animal, x, y);
+    }
+    
+    // Submit button
+    const submitHeight = 30, submitWidth = boxWidth - 20;
+    const submitX = boxX + 10, submitY = boxY + boxHeight - submitHeight - 10;
+    fill(50, 205, 50);
+    rect(submitX, submitY, submitWidth, submitHeight, 5);
+    fill(0); 
+    textSize(18); 
+    textAlign(CENTER, CENTER);
+    text("SUBMIT", submitX + submitWidth/2, submitY + submitHeight/2);
 }
