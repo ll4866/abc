@@ -1,4 +1,11 @@
 /* OVERLAYS */
+body {
+    overflow: hidden; 
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
 .overlay {
     position: fixed;
     padding: 0px 25px;
@@ -42,7 +49,8 @@
 .avatar-btn {
     position: fixed;
     top: 75%;
-    left: 35%;
+    left: 50%;
+    transform: translateX(-50%);
     padding: 10px 22px;
     font-size: 14px;
     border-radius: 25px;
@@ -52,6 +60,13 @@
     cursor: pointer;
     display: none;
     z-index: 9999;
+}
+
+#clearAvatar {
+    top: 82%; /* slightly lower than submit button */
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgb(220, 50, 50); /* red color for clear */
 }
 
 #p5-canvas-container canvas {

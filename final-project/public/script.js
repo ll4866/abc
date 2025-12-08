@@ -1,9 +1,8 @@
-// box machine of catching toys can use similar mechanism
-// resolve the screen from scrolling
 // maybe pushing the letters to form a word intead of tapping them
 // more collaborative (roles each person a letter)
-// maybe adding parts of animals together into somehting
 // showcase the word tapped
+
+// maybe adding parts of animals together into somehting
 
 /* ------------------------------------ */
 // NAME PAGE
@@ -31,6 +30,11 @@ nameInput.addEventListener('keyup', function (e) {
 // submitting avatar to server
 const avatarSubmit = document.getElementById("avatarSubmit");
 avatarSubmit.addEventListener("click", submitAvatar);
+
+const clearAvatar = document.getElementById("clearAvatar");
+clearAvatar.addEventListener("click", function() {
+    myDrawingPoints = [];
+});
 
 // convinience arrow key movement
 window.addEventListener('keydown', function(e) {
@@ -62,6 +66,9 @@ let showMap = false;
 let alpha, beta, gamma = 0;
 let mapW = 2000;
 let mapH = 2000;
+let lastGamma = 0;
+let lastBeta = 0;
+let lastGrabbing = false;
 
 // map objects
 let otherPlayers = {};
@@ -69,31 +76,36 @@ let foundAnimals = [];
 
 // letters
 let letters = [];
-let pushRadius = 50;
-let pushStrength = 30;
-let minDistance = 20;
-let lastVisibleLetters = "";
+let minDistance = 25;
 let animalNames = [];
-let matchingLetters= new Set();
-let selectedLetters = "";
+let lastPossibleAnimalsString = "";
 
-let lastEmptyTapTime = 0;
-let lastEmptyTapPos = {x: 0, y: 0};
-const emptyTapThreshold = 400;
-const emptyTapRadius = 30;
+const orderXThreshold = 50;
+const orderYThreshold = 40;
+let lastVisibleLetters = "";
+let matchingLetters= new Set();
+let matchingLetterIndices = new Set(); 
+let visibleAnimalMatches = []; 
 
 // XY-Coodinates of user & map
 let mapX = 0;
 let mapY = 0;
-let moveScale = 2;
+let moveScale = 1;
 let lastMapX = null;
 let lastMapY = null;
+const tiltSensitivity = 0.1; // adjust for faster/slower response
+const maxSpeed = 10; 
 
 // Convinience control testing
 let moveLeft = false;
 let moveRight = false;
 let moveUp = false;
 let moveDown = false;
+
+// Claw Setting
+let grabbing = false;
+let grabbedLetter = null;
+let lastLetterPositions = new Map();
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
@@ -106,7 +118,7 @@ function draw(){
     /* ------------------------------------ */
     // AVATAR SECTION
     if (isDrawing){
-        avatarSubmit.style.display = "block"; 
+        toggleAvatarButtons(true);
 
         // instructions
         stroke(0);
@@ -125,7 +137,7 @@ function draw(){
         // draw avatar
         drawAvatar(myDrawingPoints);
     } else {
-        avatarSubmit.style.display = "none";
+        toggleAvatarButtons(false);
     }
 
     /* ------------------------------------ */
@@ -133,22 +145,29 @@ function draw(){
     if (showMap == true){
         // Movement Condition:
             // how much tilt to move direction
-            if (round(gamma) > 35 || moveRight){
+            let speedX = 0;
+            if (round(gamma) > 5){
                 // console.log('the user is moving right');
-                mapX = mapX - moveScale;
+                speedX = gamma * tiltSensitivity;
             } 
-            if (round(gamma) < -35 || moveLeft){
+            if (round(gamma) < -5){
                 // console.log('the user is moving left');
-                mapX = mapX + moveScale;
+                speedX = gamma * tiltSensitivity;
             }
-            if (round(beta) > 25 || moveDown){
+            speedX = constrain(speedX, -maxSpeed, maxSpeed);
+            mapX -= speedX;
+
+            let speedY = 0;
+            if (round(beta) > 5){
                 // console.log('the user is moving dowm');
-                mapY = mapY - moveScale;
+                speedY = beta * tiltSensitivity;
             }
-            if (round(beta) < -25 || moveUp){
+            if (round(beta) < -5){
                 // console.log('the user is moving up');
-                mapY = mapY + moveScale;
+                speedY = beta * tiltSensitivity;
             }
+            speedY = constrain(speedY, -maxSpeed, maxSpeed);
+            mapY -= speedY;
 
             // bound user inside map
             if (mapX > 0) {
@@ -164,7 +183,7 @@ function draw(){
                 mapY = -mapH;
             }
 
-        // Draw map (moving)
+            // Draw map (moving)
             push();
                 translate(width/2 + mapX, height/2 + mapY);
                 fill(14, 99, 107);
@@ -173,10 +192,25 @@ function draw(){
                 // draw other players
                 for (let userId in otherPlayers) {
                     let p = otherPlayers[userId];
+             
                     push();
-                        translate(p.x - width/8, p.y - height/8);
+                        translate( - width/8, - height/8);
+                        translate(-p.x, -p.y); 
                         scale(0.25);
+                        noFill();
+                        stroke(255, 215, 0);
                         drawAvatar(p.drawing, p.username);
+                    pop();
+
+                    push();
+                        let angle = 0;
+                        if (p.gamma !== undefined && p.beta !== undefined) {
+                            angle = atan2(-p.gamma, p.beta);
+                        }
+                        translate(-p.x, -p.y); 
+                        rotate(angle);
+                        stroke(255, 215, 0);
+                        drawClaw(p.grabbing);
                     pop();
                 }
 
@@ -188,155 +222,194 @@ function draw(){
                     pop();
                 }                
             pop();
+
+        // Claw
+            // Draw grab button at bottom center
+            if (grabbing == false){
+                fill(50, 205, 50);
+            } else {
+                fill(220, 20, 60);
+            }
+            stroke(0);
+            strokeWeight(2);
+            circle(width/2, height - 100, 80);
+
+            fill(0);
+            noStroke();
+            textAlign(CENTER, CENTER);
+            textSize(16);
+            text("GRAB", width/2, height - 100);
+        
+
+            push();
+                translate(width/2, height/2);
+                let angle = atan2(-gamma, beta);
+                rotate(angle);
+                stroke(0);
+                drawClaw(grabbing);
+            pop();
         
         // My avatar (static)
             push();
                 translate(3 * width/8, 3 * height/8);
                 scale(0.25);
+                noFill();
+                stroke(0);
                 drawAvatar(myDrawingPoints, myUsername);
             pop();
-
-        // Scoop
-            push();
-                translate(width/2, height/2);
-                let angle = atan2(beta, gamma);
-                rotate(angle);
-                stroke(0, 150, 0);
-                strokeWeight(4);
-                noFill();
-                line(50, 0, 0, 0);
-                line(50, 45, 50, -45);
-            pop();
-
 
         // Letter drawing & conditions
             for (let i = 0; i < letters.length; i++) {
                 let s = letters[i];
-                let dx = (s.x + width/2 + mapX) - width/2;
-                let dy = (s.y + height/2 + mapY) - height/2;
-                let distance = Math.sqrt(dx*dx + dy*dy);
                 
-                // if within pushing distance
-                if (distance < pushRadius) {
-                    // calculate vector direction
-                    let ux = dx / distance;
-                    let uy = dy / distance;
-                    s.x += ux * pushStrength;
-                    s.y += uy * pushStrength;
+                let offset = 5;
 
-                    // keep letters inside map
-                    if (s.x < 0) {
-                        s.x = minDistance;
-                    }
-                    if (s.x > mapW) {
-                        s.x = mapW - minDistance;
-                    }
-                    if (s.y < 0) {
-                        s.y = minDistance;
-                    }
-                    if (s.y > mapH) {
-                        s.y = mapH - minDistance;
-                    }
+                // If a letter is grabbed, move it to the tip of the claw
+                if (grabbing && grabbedLetter) {
+                    // angle of claw (already used for drawing)
+                    let angle = atan2(-gamma, beta);
+                
+                    // Tip of claw relative to its base (0,0)b
+                    let tip = createVector(0, 70); // 70 = claw arm length
+                    tip.rotate(angle);
+                
+                    // Position in map coordinates
+                    grabbedLetter.x = tip.x - mapX;
+                    grabbedLetter.y = tip.y - mapY;
+                }
 
-                    // prevent overlapping with other letters
-                    for (let j = 0; j < letters.length; j++) {
-                        if (i !== j){
-                            let other = letters[j];
-                            let dx2 = s.x - other.x;
-                            let dy2 = s.y - other.y;
-                            let d = Math.sqrt(dx2*dx2 + dy2*dy2);
+                // keep letters inside map
+                if (s.x < offset) {
+                    s.x = minDistance;
+                }
+                if (s.x > mapW - offset) {
+                    s.x = mapW - minDistance;
+                }
+                if (s.y < offset) {
+                    s.y = minDistance;
+                }
+                if (s.y > mapH - offset) {
+                    s.y = mapH - minDistance;
+                }
 
-                            // if letters are too close
-                            if (d < minDistance && d > 0) {
-                                let ux2 = dx2 / d;
-                                let uy2 = dy2 / d;
-                                let overlap = minDistance - d;
+                // prevent overlapping with other letters
+                for (let j = 0; j < letters.length; j++) {
+                    if (i !== j){
+                        let other = letters[j];
+                        let dx2 = s.x - other.x;
+                        let dy2 = s.y - other.y;
+                        let d = Math.sqrt(dx2*dx2 + dy2*dy2);
 
-                                // push them away from each other
-                                s.x += ux2 * overlap * 0.5;
-                                s.y += uy2 * overlap * 0.5;
-                                other.x -= ux2 * overlap * 0.5;
-                                other.y -= uy2 * overlap * 0.5;
-                            }
+                        // if letters are too close
+                        if (d < minDistance && d > 0) {
+                            let ux2 = dx2 / d;
+                            let uy2 = dy2 / d;
+                            let overlap = minDistance - d;
+
+                            // push them away from each other
+                            s.x += ux2 * overlap * 0.5;
+                            s.y += uy2 * overlap * 0.5;
+                            other.x -= ux2 * overlap * 0.5;
+                            other.y -= uy2 * overlap * 0.5;
                         }
+                    }
+                }
+
+                // letters drawing
+                push();
+                    translate(width/2 + mapX, height/2 + mapY);
+                    
+                    // check if this letter is part of any visible animal match
+                    let isMatched = false;
+                    for (let match of visibleAnimalMatches) {
+                        if (match.letterIndices.includes(i)) {
+                            isMatched = true;
+                            break;
+                        }
+                    }
+
+                    // color change dependented upon
+                    if (isMatched) {
+                        fill(0, 255, 0);
+                        stroke(0, 200, 0);
+                        strokeWeight(2);
+                    } else {
+                        fill(194, 178, 128);
+                        noStroke();
                     }
                     
-                    // send the updated letters positions
-                    socket.emit("push-letters", letters);
-                } else {
-                    // letters drawing
-                    push();
-                        translate(width/2 + mapX, height/2 + mapY);
+                    textSize(16);
+                    textAlign(CENTER, CENTER);
+                    text(s.letter, s.x, s.y);
+                pop();
+                
+                if (grabbing && grabbedLetter) {
+                    for (let i = 0; i < letters.length; i++) {
+                        const letter = letters[i];
                         
-                        // color change dependented upon
-                        // the letter matches a letter used in a possible animal
-                        if (matchingLetters.has(s.letter.toUpperCase())) {
-                            fill(0, 255, 0);
-                            stroke(0, 200, 0);
-                            strokeWeight(2);
-                        } else {
-                            fill(194, 178, 128);
-                            noStroke();
-                        }
-                        textSize(16);
-                        textAlign(CENTER, CENTER);
-                        text(s.letter, s.x, s.y);
-                    pop();
-                }
-            }
-
-            // Possible combination
-                // record letters that are currently visible on the screen
-                const visibleLetters = letters.filter(l => {
-                    const screenX = l.x + width/2 + mapX;
-                    const screenY = l.y + height/2 + mapY;
-                    return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
-                });
-
-                // convert to string
-                const currentLetters = visibleLetters.map(l => l.letter).join(' ');
-
-                // update visible letters list
-                if (currentLetters !== lastVisibleLetters) {
-                    lastVisibleLetters = currentLetters;
-                    // console.log("Letters in view:", currentLetters);
-
-                    // all words uppercase for convinience
-                    const lettersArray = visibleLetters.map(l => l.letter.toUpperCase());
-
-                    // possible animals that could be made with the list of letters
-                    const possibleAnimals = animalNames.filter(name => canFormWord(name, lettersArray));
-                    console.log("Possible animals:", possibleAnimals);
-
-                    // add to list letters that can make up a possible 
-                    matchingLetters.clear();
-                    for (let animal of possibleAnimals) {
-                        let tempLetters = [...lettersArray];
-                        for (let char of animal) {
-                            const index = tempLetters.indexOf(char);
-                            if (index !== -1) {
-                                matchingLetters.add(char);
-                                tempLetters.splice(index, 1);
-                            }
+                        // get last recorded position
+                        const lastPos = lastLetterPositions.get(i);
+                    
+                        // check if the position has changed
+                        if (!lastPos || 
+                            Math.abs(letter.x - lastPos.x) > 6 || 
+                            Math.abs(letter.y - lastPos.y) > 6
+                        ) {
+                            // position changed → log and send to server
+                            // console.log(`Letter '${letter.letter}' moved:`, { x: letter.x, y: letter.y });
+                            socket.emit("push-letters", { index: i, x: Math.round(letter.x * 10) / 10, y: Math.round(letter.y * 10) / 10 });
+                    
+                            // update last position
+                            lastLetterPositions.set(i, { x: letter.x, y: letter.y });
                         }
                     }
-                    // console.log("Letters used in possible animals:", Array.from(matchingLetters).join(', '));
-
-                    // ensure selectedLetters only contains letters that are still visible
-                    const visibleLettersSet = new Set(visibleLetters.map(l => l.letter.toLowerCase()));
-                    selectedLetters = selectedLetters.split('').filter(l => visibleLettersSet.has(l)).join('');
                 }
-
+            }
+        
         // if moved send location to server
-            if (mapX !== lastMapX || mapY !== lastMapY) {
-                socket.emit("update-location", { userId: myUserId, x: mapX, y: mapY });
+            if (Math.abs(mapX - lastMapX) > 1 || 
+                Math.abs(mapY - lastMapY) > 1 ||
+                Math.abs(lastGamma - gamma) > 2 || 
+                Math.abs(lastBeta - beta) > 2 ||
+                grabbing !== lastGrabbing
+            ) {
+                socket.emit("update-location", { 
+                    userId: myUserId, 
+                    x: mapX, 
+                    y: mapY,
+                    g: gamma,
+                    b: beta,
+                    grabbing
+                });
+
+                // SAVE LOCALLY
+                localStorage.setItem("saved-map-pos", JSON.stringify({ 
+                    x: mapX, 
+                    y: mapY 
+                }));
 
                 lastMapX = mapX;
                 lastMapY = mapY;
+                lastGamma = gamma;
+                lastBeta = beta;
+                lastGrabbing = grabbing;
                 // console.log("location changed");
             }
-    } else {
-        document.querySelector('#requestOrientationButton').style.display = "none";
+
+            updateMatchingLetters();
+
+        // Testing for multiple devices:
+            // computer arrow control rotation
+            if(beta === undefined)  beta = 0;
+            if(gamma === undefined) gamma = 0;
+            if(moveRight)   { gamma ++; }
+            if(moveLeft)    { gamma --; }
+            if(moveUp)      { beta  --; }
+            if(moveDown)    { beta  ++; }
+
+            textAlign(LEFT);
+            text("beta:"  + round(beta), width - 100, 5);
+            text("gamma:" + round(gamma), width - 100, 20);
     }
 }
 
@@ -355,14 +428,25 @@ socket.on('new-avatar', function (avatars) {
 
 socket.on("location-update", function (data) {
     if (otherPlayers[data.userId]) {
-        otherPlayers[data.userId].x = - data.x;
-        otherPlayers[data.userId].y = - data.y;
+        otherPlayers[data.userId].x = data.x;
+        otherPlayers[data.userId].y = data.y;
+        otherPlayers[data.userId].gamma = data.g;
+        otherPlayers[data.userId].beta = data.b;
+        otherPlayers[data.userId].grabbing = data.grabbing;
     }
-    // console.log("change of location",otherPlayers);
+    // console.log("change of location", otherPlayers);
 });
 
 socket.on("letters-create", function (particles) {
     letters = particles.map(l => ({ ...l, selected: false }));
+});
+
+socket.on("letters-moved", (data) => {
+    const { index, x, y } = data;
+    if (letters[index]) {
+        letters[index].x = x;
+        letters[index].y = y;
+    }
 });
 
 socket.on("animal-list", (names) => {
@@ -383,75 +467,27 @@ function touchStarted() {
     }
 
     if (showMap){
-        let tappedLetter = false;
+        // Check if GRAB button is pressed
         for (let t of touches) {
             const touchX = t.x;
             const touchY = t.y;
-    
-            for (let l of letters) {
-                // Convert letter position to screen coordinates
-                let screenX = l.x + width/2 + mapX;
-                let screenY = l.y + height/2 + mapY;
-            
-                // Check if touch is within radius of letter
-                let d = dist(touchX, touchY, screenX, screenY);
-                if (d < 20) { // 20px tap radius
-                    tappedLetter = true;
 
-                    const letter = l.letter.toLowerCase();
-            
-                    if (!l.selected) {
-                        // select this specific letter object
-                        selectedLetters += letter;
-                        l.selected = true;
-                    } else {
-                        // deselect this letter object
-                        const index = selectedLetters.indexOf(letter);
-                        selectedLetters = selectedLetters.slice(0, index) + selectedLetters.slice(index + 1);
-                        l.selected = false;
-                    }
-    
-                    console.log("Selected letters:", selectedLetters);
+            let btnX = width / 2;
+            let btnY = height - 100;
+            let btnRadius = 40;
+            let d = dist(touchX, touchY, btnX, btnY);
 
-                    // Check if selectedLetters matches any animalNames
-                    const selectedUpper = selectedLetters.toUpperCase();
-                    for (let animal of animalNames) {
-                        if (selectedUpper === animal) {
-                            console.log("Found animal:", animal);
-                        
-                            // Send to socket
-                            socket.emit("found-animal", {
-                                animal: animal,
-                                x: mapX,
-                                y: mapY
-                            });
-                        
-                            // Clear selected letters AND deselect each letter object
-                            letters.forEach(l => {
-                                if (l.selected) l.selected = false;
-                            });
-                            selectedLetters = "";
-                        
-                            break; // stop checking once matched
-                        }
-                        
-                    }
+            if (d < btnRadius) {
+                grabbedLetter = getClosestLetterToClaw();
+
+                if(grabbing == false ){
+                    grabbing = true;
+                    // console.log("grabbing state:", grabbedLetter);
+                } else {
+                    grabbing = false;
+                    // console.log("grabbing state: released");
+                    grabbedLetter = null;
                 }
-            }
-            // Handle double-tap on empty space
-            if (!tappedLetter) {
-                const now = millis();
-                const distFromLast = dist(touchX, touchY, lastEmptyTapPos.x, lastEmptyTapPos.y);
-
-                if (now - lastEmptyTapTime < emptyTapThreshold && distFromLast < emptyTapRadius) {
-                    // double-tap detected: clear all selections
-                    letters.forEach(ltr => ltr.selected = false);
-                    selectedLetters = "";
-                    console.log("Cleared all selected letters!");
-                }
-
-                lastEmptyTapTime = now;
-                lastEmptyTapPos = {x: touchX, y: touchY};
             }
         }
     }
@@ -501,6 +537,19 @@ function sendName() {
 
     // start Drawing Avatar:
     isDrawing = true;
+
+    // load avatar
+    loadAvatarLocally();
+}
+
+function toggleAvatarButtons(displays) {
+    if (displays == true){
+        avatarSubmit.style.display = "block";
+        clearAvatar.style.display = "block";
+    } else {
+        avatarSubmit.style.display = "none";
+        clearAvatar.style.display = "none";
+    }
 }
 
 function submitAvatar() {
@@ -511,20 +560,37 @@ function submitAvatar() {
     socket.emit("submit-avatar", cleanedDrawing);
     console.log('Avatar submitted!', cleanedDrawing);
 
+    // save locally
+    saveAvatarLocally();
+
     // stop drawing avatar
     isDrawing = false;
-    avatarSubmit.style.display = 'none';
+    toggleAvatarButtons(true);
+
+    // Load last recorded map position
+    let savedPos = localStorage.getItem("saved-map-pos");
+    if (savedPos) {
+        savedPos = JSON.parse(savedPos);
+        mapX = savedPos.x;
+        mapY = savedPos.y;
+    } else {
+        // no saved position yet → start at 0,0
+        mapX = 0;
+        mapY = 0;
+    }
 
     // start showing the map
     showMap = true;
-    document.getElementById('requestOrientationButton').style.display = 'block';
+
+    // request orientation
+    requestOrientation();
 }
 
 function drawAvatar(drawing, username = "") {
     // avatar
     drawingContext.setLineDash([]);
     strokeWeight(10);
-    noFill();
+    
     for (let strokeArr of drawing) {
         beginShape();
         for (let pt of strokeArr) {
@@ -543,23 +609,47 @@ function drawAvatar(drawing, username = "") {
     }
 }
 
+function saveAvatarLocally() {
+    if (myDrawingPoints.length > 0) {
+        const cleanedDrawing = myDrawingPoints.filter(strokeArr => strokeArr.length > 0);
+        localStorage.setItem("my-avatar", JSON.stringify(cleanedDrawing));
+        console.log("Avatar saved locally!");
+    }
+}
+
+function loadAvatarLocally() {
+    const saved = localStorage.getItem("my-avatar");
+    if (saved) {
+        myDrawingPoints = JSON.parse(saved);
+        console.log("Loaded avatar from local storage!");
+        toggleAvatarButtons(true); // show submit/clear buttons
+    }
+}
+
+function requestOrientation() {
+    // from: https://dev.to/li/how-to-requestpermission-for-devicemotion-and-deviceorientation-events-in-ios-13-46g2
+
+    // feature detect
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+            if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+            }
+        })
+        .catch(console.error);
+    } else {
+        // handle regular non iOS 13+ devices
+        window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+}
+
 function handleOrientation(eventData){
-    document.querySelector('#requestOrientationButton').style.display = "none";
     // console.log(eventData.alpha, eventData.beta, eventData.gamma);
     
     alpha = eventData.alpha;
     beta = eventData.beta;
     gamma = eventData.gamma;
-}
-
-function canFormWord(word, availableLetters) {
-    const lettersCopy = [...availableLetters];
-    for (let char of word) {
-        const index = lettersCopy.indexOf(char);
-        if (index === -1) return false;
-        lettersCopy.splice(index, 1);
-    }
-    return true;
 }
 
 function drawAnimal(a) {
@@ -594,4 +684,130 @@ function drawAnimal(a) {
             else { noFill(); stroke(...e.rgb[e.index]); bezier(e.x1[e.index], e.y1[e.index], e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]); }
         }
     }
+}
+
+function drawClaw(isGrabbing) {
+    strokeWeight(4);
+    noFill();
+    
+    // Claw rope/arm
+    line(0, 0, 0, 50);
+    
+    // Claw arms
+    if (isGrabbing == false) {
+        line(0, 50, - 20, 70);
+        line(0, 50, 20, 70);
+    } else {
+        // If holding something, close the claw
+        line(0, 50, - 5, 70);
+        line(0, 50, 5, 70);
+    }
+}
+
+function getClosestLetterToClaw() {
+    let closest = null;
+    let minDist = Infinity;
+    let closestIndex = -1;
+    const grabDistance = 30;
+
+    // angle of claw
+    let angle = atan2(-gamma, beta);
+
+    // claw tip relative to center
+    let tip = createVector(0, 70); // 70 = claw arm length
+    tip.rotate(angle);
+
+    // claw tip in screen coordinates
+    const clawTipX = width/2 + tip.x;
+    const clawTipY = height/2 + tip.y;
+
+    for (let i = 0; i < letters.length; i++) {
+        let l = letters[i];
+        let screenX = l.x + width/2 + mapX;
+        let screenY = l.y + height/2 + mapY;
+        let d = dist(clawTipX, clawTipY, screenX, screenY);
+
+        if (d < minDist) {
+            minDist = d;
+            closest = l;
+            closestIndex = i;
+        }
+    }
+
+    if (closest && minDist <= grabDistance) {
+        return closest;
+    } else {
+        return null;
+    }
+}
+
+function updateMatchingLetters() {
+    // Step 1: letters visible on screen
+    const visibleLetters = letters.map((l, i) => ({
+        letter: l.letter.toUpperCase(),
+        x: l.x,
+        y: l.y,
+        index: i
+    })).filter(l => {
+        const screenX = l.x + width/2 + mapX;
+        const screenY = l.y + height/2 + mapY;
+        return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
+    });
+
+    // Step 2: find animals that can be formed with visible letters
+    const availableLetters = visibleLetters.map(l => l.letter);
+    const possibleAnimals = animalNames.filter(name => canFormWord(name, availableLetters));
+    const possibleAnimalsStr = possibleAnimals.slice().sort().join(",");
+    if (possibleAnimalsStr !== lastPossibleAnimalsString) {
+        console.log("Possible animals:", possibleAnimals);
+        lastPossibleAnimalsString = possibleAnimalsStr;
+    }
+
+    // Reset sets
+    matchingLetterIndices.clear();
+    visibleAnimalMatches = [];
+
+    // Step 3: check letters in order & proximity
+    for (let animal of possibleAnimals) {
+        let sequenceIndices = [];
+        let sequencePositions = [];
+        let letterIndex = 0;
+        let lastLetterObj = null;
+
+        for (let l of visibleLetters) {
+            if (l.letter === animal[letterIndex]) {
+                if (lastLetterObj) {
+                    const dx = Math.abs(l.x - lastLetterObj.x);
+                    const dy = Math.abs(l.y - lastLetterObj.y);
+                    if (dx > orderXThreshold || dy > orderYThreshold) continue;
+                }
+
+                sequenceIndices.push(l.index);
+                sequencePositions.push({ x: l.x, y: l.y });
+                lastLetterObj = l;
+                letterIndex++;
+
+                if (letterIndex === animal.length) {
+                    visibleAnimalMatches.push({
+                        animal,
+                        letterIndices: sequenceIndices,
+                        positions: sequencePositions
+                    });
+                    sequenceIndices.forEach(idx => matchingLetterIndices.add(idx));
+                    break; // done with this animal
+                }
+            }
+        }
+    }
+}
+
+
+function canFormWord(word, availableLetters) {
+    const lettersCopy = [...availableLetters];
+    for (let char of word) {
+        const index = lettersCopy.indexOf(char);
+        if (index === -1) return false;
+        lettersCopy.splice(index, 1);
+    }
+    return true;
 }

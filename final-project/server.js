@@ -71,14 +71,17 @@ history.users.forEach(u => {
     avatars[u.userId] = {
         userId: u.userId,
         username: u.username,
-        drawing: u.drawing || [], // empty until they submit avatar
+        drawing: u.drawing || [],
         x: u.x || 0,
-        y: u.y || 0
+        y: u.y || 0,
+        gamma: u.gamma || 0,
+        beta: u.beta || 0,
+        grabbing: u.grabbing || false
     };
 });
 
-// Create letters if not loaded
-if (history.letters.length === 0) {
+// Create letters if not loaded or less than 500
+if (history.letters.length === 0 || history.letters.length < 500) {
     const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     for (let i = 0; i < 500; i++) {
         lettersParticles.push({
@@ -97,9 +100,14 @@ function saveHistory() {
     history.users = Object.values(avatars).map(a => ({
         userId: a.userId,
         username: a.username,
+        drawing: a.drawing || [],
         x: a.x || 0,
-        y: a.y || 0
+        y: a.y || 0,
+        gamma: a.gamma || 0,
+        beta: a.beta || 0,
+        grabbing: a.grabbing || false
     }));
+    
     fs.writeFileSync(DATA_PATH, JSON.stringify(history, null, 2), 'utf-8');
 }
 
@@ -113,6 +121,17 @@ io.on('connection', (socket) => {
     socket.emit("animal-list", animalNames);
 
     socket.on("identify", function(data){
+        if (users[data.userId]) {
+            let oldSocket = users[data.userId];
+    
+            // Remove old socket reference
+            delete sockets[oldSocket];
+        }
+
+        if (avatars[data.userId]) {
+            delete avatars[data.userId];
+        }
+
         // connect username and user id to socket ids
         sockets[socket.id] ={
             userId: data.userId,
@@ -121,29 +140,33 @@ io.on('connection', (socket) => {
         users[data.userId]= socket.id;
 
         console.log("currently online", sockets);
-        // console.log(users);
+
+        Object.values(avatars).forEach(a => {
+            socket.emit('new-avatar', a);
+        });
     })
 
     socket.on('submit-avatar', function (data) {
-        console.log('Avatar received:', data);
-
-        // Extracting user ID
+        // check if the user has identified first
         const userInfo = sockets[socket.id];
         const myUserId = userInfo.userId;
+        // console.log('Avatar received:', data);
 
         // Save avatar based on userId
         avatars[myUserId] = {
+            userId: myUserId,
             username: userInfo.username,
-            drawing: data
+            drawing: data,
+            x: avatars[myUserId]?.x || 0,
+            y: avatars[myUserId]?.y || 0,
+            gamma: avatars[myUserId]?.gamma || 0,
+            beta: avatars[myUserId]?.beta || 0,
+            grabbing: avatars[myUserId]?.grabbing || false
         };
         console.log('All Avatars received:', avatars);
 
         // Send to other users this info
-        socket.broadcast.emit('new-avatar', {
-            userId: myUserId,
-            username: userInfo.username,
-            drawing: data
-        });
+        socket.broadcast.emit('new-avatar', avatars[myUserId]);
 
         // Send initial letters state to this user
         socket.emit("letters-create", lettersParticles);
@@ -156,6 +179,9 @@ io.on('connection', (socket) => {
     
         avatars[data.userId].x = data.x;
         avatars[data.userId].y = data.y;
+        avatars[data.userId].gamma = data.gamma;
+        avatars[data.userId].beta = data.beta;
+        avatars[data.userId].grabbing = data.grabbing;
     
         // broadcast to all other clients
         socket.broadcast.emit("location-update", data);
@@ -163,10 +189,21 @@ io.on('connection', (socket) => {
         // console.log("location update", data);
     });
 
-    socket.on("push-letters", (updatedSand) => {
-        lettersParticles = updatedSand;
-        io.emit("letters-create", lettersParticles);
+    socket.on("push-letters", (updateLocation) => {
+        const { index, x, y } = updateLocation;
+
+        // Update internal server letter data
+        lettersParticles[index].x = x;
+        lettersParticles[index].y = y;
+        // console.log(`Letter ${index} moved → x:${x} y:${y}`);
         saveHistory();
+
+        // Broadcast to all OTHER players (not the sender)
+        socket.broadcast.emit("letters-moved", {
+            index,
+            x,
+            y
+        });
     });
 
     socket.on("found-animal", function (data){
