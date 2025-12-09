@@ -18,8 +18,7 @@ const options = {
 
 let HTTPSserver = https.createServer(options, app);
 
-const { Server } =  require('socket.io'); // include library
-const { IncomingMessage } = require('http');
+const { Server } =  require('socket.io'); // include library;
 const io = new Server(HTTPSserver);
 
 let sockets = {};

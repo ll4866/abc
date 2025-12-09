@@ -451,7 +451,7 @@ function draw(){
 /* ------------------------------------ */
 // SOCKETS:
 if(location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')){
-    socket = io({path: "/lucas/port-4230/socket.io"});  // yields '/leon/port-4100/socket.io' or '/socket.io'
+    socket = io({path: "/lucas/port-4230/socket.io"});
 }else{
     socket = io(); 
 }
