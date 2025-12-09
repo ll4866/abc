@@ -19,8 +19,8 @@ const options = {
 
 let HTTPSserver = https.createServer(options, app)
 
-const { Server } = require('socket.io'); // include library
-const io = new Server(HTTPSserver); // start socket io 
+const { Server } = require('socket.io');
+const io = new Server(HTTPSserver);
 
 let sockets = {};
 let users = {};  
@@ -30,23 +30,31 @@ let lettersParticles = [];
 const mapW = 2000;
 const mapH = 2000;
 
-// there are traps around the map
-// terms like character wings, 4legs, big, small, .... to add to avatar
-// can tap screen to duplicate and have an original (only if it is diff from original)
-// dead creatures turn into a zombie which stays alive but disappear after a while
-
 // Load history if exists
 const DATA_PATH = "game-data.json";
-let history = { users: [], letters: [] };
+let history = { users: [], letters: [], animals: []};
 try {
     if (fs.existsSync(DATA_PATH)) {
         const file = fs.readFileSync(DATA_PATH, 'utf8');
         history = JSON.parse(file);
-        console.log('Loaded game history:', history.users.length, 'users,', history.letters.length, 'letters');
+        console.log('Loaded game history:', history.users.length, 'users,', history.letters.length, 'letters', history.animals.length, 'animals');
     }
 } catch (err) {
     console.log('Could not load game history, starting empty');
-    history = { users: [], letters: [] };
+    history = { users: [], letters: [], animals: []  };
+}
+
+// animal
+let wanderingState = {};
+
+if (history.animals && history.animals.length > 0) {
+    for (let i = 0; i < history.animals.length; i++) {
+        wanderingState[i] = {
+            dirX: (Math.random() - 0.5) * 0.5,
+            dirY: (Math.random() - 0.5) * 0.5,
+            timeLeft: Math.random() * 2000 + 1000
+        };
+    }
 }
 
 // Load animal data
@@ -119,6 +127,13 @@ io.on('connection', (socket) => {
     // Send animal names
     const animalNames = Object.keys(animalData);
     socket.emit("animal-list", animalNames);
+
+    socket.emit("restore-animals", history.animals.map(a => ({
+        animal: a.animal,
+        x: a.x,
+        y: a.y,
+        info: animalData[a.animal.toLowerCase()] || null
+    })));    
 
     socket.on("identify", function(data){
         if (users[data.userId]) {
@@ -210,6 +225,19 @@ io.on('connection', (socket) => {
         const { animal, x, y } = data;
         const info = animalData[animal.toLowerCase()] || {};
 
+        // Save to server history
+        if (!history.animals) history.animals = [];
+        history.animals.push({ animal, x, y});
+        saveHistory();
+
+        // create wander state for this new animal
+        const idx = history.animals.length - 1;
+        wanderingState[idx] = {
+            dirX: (Math.random() - 0.5) * 0.5,
+            dirY: (Math.random() - 0.5) * 0.5,
+            timeLeft: Math.random() * 2000 + 1000
+        };
+
         // Create object to send
         const payload = {
             animal,
@@ -242,6 +270,60 @@ io.on('connection', (socket) => {
 function random(min, max) {
     return Math.random() * (max - min) + min;
 }
+
+function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+}
+
+setInterval(() => {
+
+    if (!history.animals || history.animals.length === 0) return;
+
+    const dt = 100; // ms per update
+
+    for (let i = 0; i < history.animals.length; i++) {
+
+        const a = history.animals[i];
+
+        // Ensure wander state exists (new animals)
+        if (!wanderingState[i]) {
+            wanderingState[i] = {
+                dirX: (Math.random() - 0.5) * 0.5,
+                dirY: (Math.random() - 0.5) * 0.5,
+                timeLeft: Math.random() * 2000 + 1000
+            };
+        }
+
+        let ws = wanderingState[i];
+
+        // Move
+        let newX = a.x + ws.dirX;
+        let newY = a.y + ws.dirY;
+
+        // Bounce at edges
+        if (newX <= 0 || newX >= mapW) ws.dirX *= -1;
+        if (newY <= 0 || newY >= mapH) ws.dirY *= -1;
+
+        // Clamp inside map
+        a.x = clamp(newX, 0, mapW);
+        a.y = clamp(newY, 0, mapH);
+
+        // Timer change direction
+        ws.timeLeft -= dt;
+        if (ws.timeLeft <= 0) {
+            ws.dirX = (Math.random() - 0.5) * 5;
+            ws.dirY = (Math.random() - 0.5) * 5;
+            ws.timeLeft = Math.random() * 2000 + 1000;
+        }
+    }
+
+    // Save positions back into history
+    saveHistory();
+
+    // Send new positions to all clients
+    io.emit("animals-update", history.animals);
+
+}, 100);
 
 // Creating servers and make them listen at their ports:
 HTTPSserver.listen(portHTTPS, function (req, res) {

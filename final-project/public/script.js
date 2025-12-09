@@ -101,6 +101,10 @@ let lastLetterPositions = new Map();
 let wordTapped = false;
 let selectedAnimalIndex = null;
 
+let ripples = []; 
+let lastClusterRippleTime = 0;
+const clusterRippleInterval = 1000; 
+
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
     canvas.parent("p5-canvas-container");
@@ -227,6 +231,13 @@ function draw(){
             stroke(0);
             strokeWeight(2);
             circle(width/2, height - 100, 80);
+
+            // Draw instruction above the button
+            noStroke();
+            fill(255);
+            textAlign(CENTER, CENTER);
+            textSize(10); // medium size
+            text("Grab the letters with the claw using this button:", width/2, height - 160);
 
             fill(0);
             noStroke();
@@ -408,6 +419,32 @@ function draw(){
         if (wordTapped) {
             drawTabBox();
         } 
+
+        if (millis() - lastClusterRippleTime > clusterRippleInterval) {
+            for (let match of visibleAnimalMatches) {
+                // Compute cluster center in screen coordinates
+                let sumX = 0;
+                let sumY = 0;
+                for (let pos of match.positions) {
+                    sumX += pos.x + width/2 + mapX;
+                    sumY += pos.y + height/2 + mapY;
+                }
+                let centerX = sumX / match.positions.length;
+                let centerY = sumY / match.positions.length;
+        
+                // Create ripple at cluster center
+                ripples.push(new Ripple(centerX, centerY));
+            }
+            lastClusterRippleTime = millis();
+        }
+
+        for (let i = ripples.length - 1; i >= 0; i--) {
+            ripples[i].update();
+            ripples[i].show();
+            if (ripples[i].finished()) {
+                ripples.splice(i, 1);
+            }
+        }
     }
 }
 
@@ -457,6 +494,29 @@ socket.on("animal-found", (data) => {
     console.log("Animal found:", data);
     foundAnimals.push(data);
 });
+
+socket.on("restore-animals", function(animals){
+    animals.forEach(a => {
+        foundAnimals.push(a);
+    });
+});
+
+socket.on("animals-update", (serverAnimals) => {
+    // serverAnimals is an array in the same order as history.animals
+    for (let i = 0; i < serverAnimals.length; i++) {
+
+        // If client doesn’t know this animal yet (e.g., rejoin)
+        if (!foundAnimals[i]) {
+            foundAnimals[i] = serverAnimals[i];
+            continue;
+        }
+
+        // Update ONLY position  
+        foundAnimals[i].x = serverAnimals[i].x;
+        foundAnimals[i].y = serverAnimals[i].y;
+    }
+});
+
 /* ------------------------------------ */
 // FUNCTIONS:
 
@@ -478,7 +538,7 @@ function touchStarted() {
                 const numRows = Math.ceil(visibleAnimalMatches.length / 2);
                 const rowHeight = 22;
                 const paddingTop = 35;
-                const paddingBottom = 50;
+                const paddingBottom = 80;
                 const boxHeight = paddingTop + numRows * rowHeight + paddingBottom;
 
                 const boxX = width/2 - boxWidth/2;
@@ -526,6 +586,13 @@ function touchStarted() {
                         for (let idx of selectedAnimal.letterIndices) {
                             letters[idx].x = random(minDistance, mapW - minDistance);
                             letters[idx].y = random(minDistance, mapH - minDistance);
+
+                            // Send immediately to server
+                            socket.emit("push-letters", { 
+                                index: idx, 
+                                x: Math.round(letters[idx].x * 10) / 10, 
+                                y: Math.round(letters[idx].y * 10) / 10 
+                            });
                         }
 
                         let sumX = 0, sumY = 0;
@@ -536,7 +603,7 @@ function touchStarted() {
                         const centerX = sumX / selectedAnimal.positions.length;
                         const centerY = sumY / selectedAnimal.positions.length;
 
-                        socket.emit("animal-found", {
+                        socket.emit("found-animal", {
                             animal: selectedAnimal.animal,
                             x: centerX,
                             y: centerY
@@ -733,33 +800,80 @@ function handleOrientation(eventData){
 function drawAnimal(a) {
     let elements = [];
 
-    // Collect elements (rect, ellipse, triangle, line, bezier)
-    for (let i = 0; i < a.rect.x.length; i++)
-        elements.push({ type: "rect", ...a.rect, index: i });
+    // Helper to safely push elements if their main array exists
+    function pushElements(type, obj, mainKey) {
+        if (obj?.[mainKey]?.length) {
+            for (let i = 0; i < obj[mainKey].length; i++) {
+                elements.push({ type, ...obj, index: i });
+            }
+        }
+    }
 
-    for (let i = 0; i < a.ellipse.x.length; i++)
-        elements.push({ type: "ellipse", ...a.ellipse, index: i });
+    pushElements("rect", a.rect, "x");
+    pushElements("ellipse", a.ellipse, "x");
+    pushElements("triangle", a.triangle, "x1");
+    pushElements("line", a.line, "x1");
+    pushElements("bezier", a.bezier, "x1");
 
-    for (let i = 0; i < a.triangle.x1.length; i++)
-        elements.push({ type: "triangle", ...a.triangle, index: i });
+    // Sort by order safely
+    elements.sort((x, y) => (x.order?.[x.index] || 0) - (y.order?.[y.index] || 0));
 
-    for (let i = 0; i < a.line.x1.length; i++)
-        elements.push({ type: "line", ...a.line, index: i });
-
-    for (let i = 0; i < a.bezier.x1.length; i++)
-        elements.push({ type: "bezier", ...a.bezier, index: i });
-
-    elements.sort((x, y) => x.order[x.index] - y.order[y.index]);
-
+    // Draw elements safely
     for (let e of elements) {
-        if (e.type === "rect") { noStroke(); fill(...e.rgb[e.index]); rect(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index], e.r[e.index]); }
-        if (e.type === "ellipse") { noStroke(); fill(...e.rgb[e.index]); ellipse(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index]); }
-        if (e.type === "triangle") { noStroke(); fill(...e.rgb[e.index]); triangle(e.x1[e.index], e.y1[e.index], e.x2[e.index], e.y2[e.index], e.x3[e.index], e.y3[e.index]); }
-        if (e.type === "line") { stroke(...e.rgb[e.index]); strokeWeight(2); line(e.x1[e.index], e.y1[e.index], e.x2[e.index], e.y2[e.index]); }
-        if (e.type === "bezier") {
-            strokeWeight(2);
-            if (e.filled[e.index]) { fill(...e.rgb[e.index]); noStroke(); beginShape(); vertex(e.x1[e.index], e.y1[e.index]); bezierVertex(e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]); endShape(CLOSE); }
-            else { noFill(); stroke(...e.rgb[e.index]); bezier(e.x1[e.index], e.y1[e.index], e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]); }
+        try {
+            switch (e.type) {
+                case "rect":
+                    if (e.rgb?.[e.index] && e.x?.[e.index] != null) {
+                        noStroke();
+                        fill(...e.rgb[e.index]);
+                        rect(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index], e.r?.[e.index] || 0);
+                    }
+                    break;
+                case "ellipse":
+                    if (e.rgb?.[e.index] && e.x?.[e.index] != null) {
+                        noStroke();
+                        fill(...e.rgb[e.index]);
+                        ellipse(e.x[e.index], e.y[e.index], e.w[e.index], e.h[e.index]);
+                    }
+                    break;
+                case "triangle":
+                    if (e.rgb?.[e.index] && e.x1?.[e.index] != null) {
+                        noStroke();
+                        fill(...e.rgb[e.index]);
+                        triangle(
+                            e.x1[e.index], e.y1[e.index],
+                            e.x2[e.index], e.y2[e.index],
+                            e.x3[e.index], e.y3[e.index]
+                        );
+                    }
+                    break;
+                case "line":
+                    if (e.rgb?.[e.index] && e.x1?.[e.index] != null) {
+                        stroke(...e.rgb[e.index]);
+                        strokeWeight(2);
+                        line(e.x1[e.index], e.y1[e.index], e.x2[e.index], e.y2[e.index]);
+                    }
+                    break;
+                case "bezier":
+                    if (e.rgb?.[e.index] && e.x1?.[e.index] != null) {
+                        strokeWeight(2);
+                        if (e.filled?.[e.index]) {
+                            fill(...e.rgb[e.index]);
+                            noStroke();
+                            beginShape();
+                            vertex(e.x1[e.index], e.y1[e.index]);
+                            bezierVertex(e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]);
+                            endShape(CLOSE);
+                        } else {
+                            noFill();
+                            stroke(...e.rgb[e.index]);
+                            bezier(e.x1[e.index], e.y1[e.index], e.cx1[e.index], e.cy1[e.index], e.cx2[e.index], e.cy2[e.index], e.x2[e.index], e.y2[e.index]);
+                        }
+                    }
+                    break;
+            }
+        } catch (err) {
+            console.warn("Skipped drawing element due to missing data:", e, err);
         }
     }
 }
@@ -928,7 +1042,7 @@ function drawTabBox() {
     const numRows = Math.ceil(visibleAnimalMatches.length / 2);
     const rowHeight = 22;
     const paddingTop = 35;
-    const paddingBottom = 50; // space for submit button
+    const paddingBottom = 80; // space for submit button
     const boxHeight = paddingTop + numRows * rowHeight + paddingBottom;
 
     const boxX = width/2 - boxWidth/2;
@@ -953,6 +1067,11 @@ function drawTabBox() {
     textAlign(LEFT, TOP);
     text("Possible Animals:", boxX + 10, boxY + 10);
 
+    // Instruction
+    textSize(14);
+    fill(80);
+    text("Click animal name to select an animal", boxX + 10, boxY + 30);
+
     // List animals in 2 columns
     const columnWidth = (boxWidth - 30) / 2; // spacing between columns
     textSize(16);
@@ -964,9 +1083,15 @@ function drawTabBox() {
         let row = Math.floor(i / 2);
 
         let x = boxX + 10 + col * columnWidth;
-        let y = boxY + 35 + row * rowHeight;
+        let y = boxY + 50 + row * rowHeight;
 
-        fill(i === selectedAnimalIndex ? 'blue' : 'black');
+        if (i === selectedAnimalIndex) {
+            fill(30, 144, 255);
+            textSize(18);
+        } else {
+            fill(100);
+            textSize(14);
+        }
         text(animal, x, y);
     }
     
@@ -980,3 +1105,29 @@ function drawTabBox() {
     textAlign(CENTER, CENTER);
     text("SUBMIT", submitX + submitWidth/2, submitY + submitHeight/2);
 }
+
+class Ripple {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.radius = 0;
+      this.alpha = 200; // starting transparency
+    }
+  
+    update() {
+      this.radius += 5; // speed of expansion
+      this.alpha -= 5;  // fade speed
+    }
+  
+    finished() {
+      return this.alpha <= 0;
+    }
+  
+    show() {
+      noFill();
+      stroke(0, 150, this.alpha);
+      strokeWeight(2);
+      ellipse(this.x, this.y, this.radius * 2);
+    }
+  }
+  
