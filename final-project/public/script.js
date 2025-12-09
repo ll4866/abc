@@ -1,3 +1,7 @@
+// SOCKET VARIABLES
+const prefix = location.pathname.replace(/\/$/, '');      
+const socket = io({ path: prefix + '/socket.io' });
+
 /* ------------------------------------ */
 // NAME PAGE
 const nameOverlay = document.getElementById('nameOverlay');
