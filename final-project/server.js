@@ -16,7 +16,7 @@ const options = {
     cert: fs.readFileSync("keys-for-local-https/localhost.pem"),
 };
 
-let HTTPSserver = https.createServer(options, app)
+let HTTPSserver = https.createServer(options, app);
 
 const { Server } =  require('socket.io'); // include library
 const { IncomingMessage } = require('http');

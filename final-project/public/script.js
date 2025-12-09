@@ -1,7 +1,3 @@
-// SOCKET VARIABLES
-const prefix = location.pathname.replace(/\/$/, '');      
-const socket = io({ path: prefix + '/socket.io' });
-
 /* ------------------------------------ */
 // NAME PAGE
 const nameOverlay = document.getElementById('nameOverlay');
@@ -455,7 +451,7 @@ function draw(){
 /* ------------------------------------ */
 // SOCKETS:
 if(location.hostname.toLowerCase().startsWith('browsercircus') || location.hostname.toLowerCase().startsWith('www')){
-    socket = io({path: "/YOURPATH-and-PORT/socket.io"});  // yields '/leon/port-4100/socket.io' or '/socket.io'
+    socket = io({path: "/lucas/port-4230/socket.io"});  // yields '/leon/port-4100/socket.io' or '/socket.io'
 }else{
     socket = io(); 
 }
