@@ -58,8 +58,8 @@ let isDrawing = false;
 // drawing the map
 let showMap = false;
 let alpha, beta, gamma = 0;
-let mapW = 2000;
-let mapH = 2000;
+let mapW = 3000;
+let mapH = 3000;
 let lastGamma = 0;
 let lastBeta = 0;
 let lastGrabbing = false;
@@ -705,7 +705,7 @@ function touchMoved() {
         for (let t of touches) {
             let dx = t.x - width/2;
             let dy = t.y - height/2;
-            let r = 100;
+            let r = 150;
             let distFromCenter = sqrt(dx*dx + dy*dy);
 
             if (distFromCenter > r) {

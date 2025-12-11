@@ -31,8 +31,8 @@ let users = {};
 let avatars = {};
 
 let lettersParticles = [];
-const mapW = 2000;
-const mapH = 2000;
+const mapW = 3000;
+const mapH = 3000;
 
 // Load history if exists
 const DATA_PATH = "game-data.json";
