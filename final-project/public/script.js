@@ -114,6 +114,11 @@ const letterUpdateInterval = 200;
 let lastActualMapX = null;
 let lastActualMapY = null;
 
+
+let showInstructions = true;
+let lastButtonPressTime = 0;
+const instructionTimeout = 300000;
+
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
     canvas.parent("p5-canvas-container");
@@ -293,11 +298,19 @@ function draw(){
             circle(width/2, height - 100, 80);
 
             // Draw instruction above the button
-            noStroke();
-            fill(255);
-            textAlign(CENTER, CENTER);
-            textSize(10); // medium size
-            text("Grab the letters with the claw using this button:", width/2, height - 160);
+            if (showInstructions) {
+                noStroke();
+                fill(255);
+                textAlign(CENTER, CENTER);
+                textSize(15);
+                text("Press the button to control the Y‑claw", width/2, height - 180);
+                text("nd grab or move letters around!:", width/2, height - 160);
+            }
+
+            // Auto-hide instructions after 1 minute of inactivity
+            if (!grabbing && millis() - lastButtonPressTime > instructionTimeout) {
+                showInstructions = true;
+            }
 
             fill(0);
             noStroke();
@@ -678,6 +691,8 @@ function touchStarted() {
                     console.log("grabbing state: released");
                     grabbedLetter = null;
                 }
+                lastButtonPressTime = millis();
+                showInstructions = false;
             } else {
                 checkWordClusterTap(touchX, touchY);
             }
