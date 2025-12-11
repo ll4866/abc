@@ -83,8 +83,12 @@ let mapY = 0;
 let moveScale = 1;
 let lastMapX = null;
 let lastMapY = null;
-const tiltSensitivity = 0.1; // adjust for faster/slower response
+const tiltSensitivity = 0.1;
 const maxSpeed = 10; 
+let userX = 0;
+let userY = 0;
+let actualMapX = 0;
+let actualMapY = 0;
 
 // Convinience control testing
 let moveLeft = false;
@@ -104,6 +108,11 @@ let selectedAnimalIndex = null;
 let ripples = []; 
 let lastClusterRippleTime = 0;
 const clusterRippleInterval = 1000; 
+
+let lastLetterUpdateTime = 0;
+const letterUpdateInterval = 200;
+let lastActualMapX = null;
+let lastActualMapY = null;
 
 function setup() {
     canvas = createCanvas(windowWidth, windowHeight);
@@ -133,7 +142,7 @@ function draw(){
         circle(width/2, height/2, 200);
 
         // draw avatar
-        drawAvatar(myDrawingPoints);
+        drawAvatar(myDrawingPoints, false);
     } else {
         toggleAvatarButtons(false);
     }
@@ -167,23 +176,43 @@ function draw(){
             speedY = constrain(speedY, -maxSpeed, maxSpeed);
             mapY -= speedY;
 
-            // bound user inside map
             if (mapX > 0) {
-                mapX = 0;
-            } 
-            if (mapX < -mapW) {
-                mapX = -mapW;
-            } 
+                mapX = mapX - mapW;
+            } else if (mapX < -mapW) {
+                mapX = mapX + mapW;
+            }
+
+            if (mapX > -width / 2) {
+                actualMapX = -width / 2;
+                userX = -mapX;
+            } else if (mapX < -mapW + width / 2) {
+                actualMapX = -mapW + width / 2;
+                userX = width - (mapW + mapX);
+            } else {
+                actualMapX = mapX;
+                userX = width / 2;
+            }
+
             if (mapY > 0) {
-                mapY = 0;
+                mapY = mapY - mapH;
+            } else if (mapY < -mapH) {
+                mapY = mapY + mapH;
             }
-            if (mapY < -mapH) {
-                mapY = -mapH;
-            }
+
+            if (mapY > -height / 2) {
+                actualMapY = -height / 2;
+                userY = -mapY;
+            } else if (mapY < -mapH + height / 2) {
+                actualMapY = -mapH + height / 2;
+                userY = height - (mapH + mapY);
+            } else {
+                actualMapY = mapY;
+                userY = height / 2;
+            }   
 
             // Draw map (moving)
             push();
-                translate(width/2 + mapX, height/2 + mapY);
+                translate(width/2 + actualMapX, height/2 + actualMapY);
                 fill(14, 99, 107);
                 rect(0 , 0, mapW, mapH);
 
@@ -196,8 +225,8 @@ function draw(){
                         translate(-p.x, -p.y); 
                         scale(0.25);
                         noFill();
-                        stroke(255, 215, 0);
-                        drawAvatar(p.drawing, p.username);
+                        stroke(0);
+                        drawAvatar(p.drawing, p.username, true);
                     pop();
 
                     push();
@@ -207,7 +236,7 @@ function draw(){
                         }
                         translate(-p.x, -p.y); 
                         rotate(angle);
-                        stroke(255, 215, 0);
+                        stroke(0);
                         drawClaw(p.grabbing);
                     pop();
                 }
@@ -216,10 +245,41 @@ function draw(){
                 for (let a of foundAnimals) {
                     push();
                         translate(a.x, a.y);
+                        stroke(0);
                         drawAnimal(a.info);
                     pop();
                 }                
             pop();
+
+        // Ripples
+            if (millis() - lastClusterRippleTime > clusterRippleInterval) {
+                for (let match of visibleAnimalMatches) {
+                    // Compute cluster center in screen coordinates
+                    let sumX = 0;
+                    let sumY = 0;
+                    for (let pos of match.positions) {
+                        sumX += pos.x;
+                        sumY += pos.y;
+                    }
+                    let centerX = sumX / match.positions.length;
+                    let centerY = sumY / match.positions.length;
+            
+                    // Create ripple at cluster center
+                    ripples.push(new Ripple(centerX, centerY));
+                }
+                lastClusterRippleTime = millis();
+            }
+    
+            for (let i = ripples.length - 1; i >= 0; i--) {
+                push();
+                translate(width/2 + actualMapX, height/2 + actualMapY); // apply map offset here
+                ripples[i].update();
+                ripples[i].show();
+                pop();
+                if (ripples[i].finished()) {
+                    ripples.splice(i, 1);
+                }
+            }
 
         // Claw
             // Draw grab button at bottom center
@@ -247,20 +307,20 @@ function draw(){
         
 
             push();
-                translate(width/2, height/2);
+                translate(userX, userY);
                 let angle = atan2(-gamma, beta);
                 rotate(angle);
-                stroke(0);
+                stroke(255, 100, 0);
                 drawClaw(grabbing);
             pop();
         
         // My avatar (static)
             push();
-                translate(3 * width/8, 3 * height/8);
+                translate(userX - width/8, userY - height/8);
                 scale(0.25);
                 noFill();
-                stroke(0);
-                drawAvatar(myDrawingPoints, myUsername);
+                stroke(255, 100, 0);
+                drawAvatar(myDrawingPoints, myUsername, true);
             pop();
 
         // Letter drawing & conditions
@@ -279,10 +339,18 @@ function draw(){
                     tip.rotate(angle);
                 
                     // Position in map coordinates
-                    grabbedLetter.x = tip.x - mapX;
-                    grabbedLetter.y = tip.y - mapY;
+                    grabbedLetter.x = tip.x - actualMapX - (width/2 - userX);
+                    grabbedLetter.y = tip.y - actualMapY - (height/2 - userY);
                 }
-                updateMatchingLetters();
+                
+                const mapMoved = (actualMapX !== lastActualMapX) || (actualMapY !== lastActualMapY);
+                if (mapMoved && (millis() - lastLetterUpdateTime > letterUpdateInterval)) {
+                    updateMatchingLetters();
+                    checkWordClusterTap(userX, userY);
+                    lastLetterUpdateTime = millis();
+                    lastActualMapX = actualMapX;
+                    lastActualMapY = actualMapY;
+                }
 
                 // keep letters inside map
                 if (s.x < offset) {
@@ -323,7 +391,7 @@ function draw(){
 
                 // letters drawing
                 push();
-                    translate(width/2 + mapX, height/2 + mapY);
+                    translate(width/2 + actualMapX, height/2 + actualMapY);
                     
                     // check if this letter is part of any visible animal match
                     let isMatched = false;
@@ -411,40 +479,16 @@ function draw(){
             if(moveUp)      { beta  --; }
             if(moveDown)    { beta  ++; }
 
-            textAlign(LEFT);
-            text("beta:"  + round(beta), width - 100, 5);
-            text("gamma:" + round(gamma), width - 100, 20);
-
         // info
         if (wordTapped) {
             drawTabBox();
+
+            // if there is no animal in sight anymore close tab
+            if (visibleAnimalMatches.length === 0) {
+                wordTapped = false;
+                // console.log("Tab closed automatically: no possible animals left");
+            }
         } 
-
-        if (millis() - lastClusterRippleTime > clusterRippleInterval) {
-            for (let match of visibleAnimalMatches) {
-                // Compute cluster center in screen coordinates
-                let sumX = 0;
-                let sumY = 0;
-                for (let pos of match.positions) {
-                    sumX += pos.x + width/2 + mapX;
-                    sumY += pos.y + height/2 + mapY;
-                }
-                let centerX = sumX / match.positions.length;
-                let centerY = sumY / match.positions.length;
-        
-                // Create ripple at cluster center
-                ripples.push(new Ripple(centerX, centerY));
-            }
-            lastClusterRippleTime = millis();
-        }
-
-        for (let i = ripples.length - 1; i >= 0; i--) {
-            ripples[i].update();
-            ripples[i].show();
-            if (ripples[i].finished()) {
-                ripples.splice(i, 1);
-            }
-        }
     }
 }
 
@@ -533,14 +577,14 @@ function touchStarted() {
 
             if (wordTapped) {
                 const boxWidth = 300;
-
-                // compute dynamic height like drawTabBox
-                const numRows = Math.ceil(visibleAnimalMatches.length / 2);
+                const numColumns = 2;
+                const columnPadding = 10;
+                const rowPadding = 5;
                 const rowHeight = 22;
                 const paddingTop = 35;
                 const paddingBottom = 80;
+                const numRows = Math.ceil(visibleAnimalMatches.length / 2);
                 const boxHeight = paddingTop + numRows * rowHeight + paddingBottom;
-
                 const boxX = width/2 - boxWidth/2;
                 const boxY = height/2 - boxHeight/2;
                 
@@ -555,22 +599,25 @@ function touchStarted() {
                     return;
                 }
 
-                // List of animals
-                const columnWidth = (boxWidth - 30) / 2;
+                // List of animals (tap detection)
+                const columnWidth = (boxWidth - columnPadding * (numColumns + 1)) / numColumns;
+
                 for (let i = 0; i < visibleAnimalMatches.length; i++) {
-                    let col = i % 2;
-                    let row = Math.floor(i / 2);
-
-                    let x1 = boxX + 10 + col * columnWidth;
-                    let y1 = boxY + paddingTop + row * rowHeight;
-                    let x2 = x1 + columnWidth - 10;
-                    let y2 = y1 + rowHeight;
-
-                    if (touchX >= x1 && touchX <= x2 &&
-                        touchY >= y1 && touchY <= y2) {
+                    const col = i % numColumns;
+                    const row = Math.floor(i / numColumns);
+            
+                    // full touch area includes the empty space to the right of the text
+                    const xStart = boxX + columnPadding + col * ((boxWidth - 3 * columnPadding) / numColumns + columnPadding) - 20;
+                    const yStart = boxY + paddingTop + row * (rowHeight + rowPadding);
+                    const xEnd = xStart + (boxWidth - 3 * columnPadding) / numColumns + 10;
+                    const yEnd = yStart + rowHeight;
+            
+                    const t = touches[0]; // for simplicity, just take the first touch
+                    if (t.x >= xStart && t.x <= xEnd && t.y >= yStart && t.y <= yEnd) {
                         selectedAnimalIndex = i;
+                        // stop here so one tap selects immediately
                         return;
-                    }
+                    }  
                 }
 
                 // Submit button 
@@ -625,10 +672,10 @@ function touchStarted() {
 
                 if(grabbing == false ){
                     grabbing = true;
-                    // console.log("grabbing state:", grabbedLetter);
+                    console.log("grabbing state:", grabbedLetter);
                 } else {
                     grabbing = false;
-                    // console.log("grabbing state: released");
+                    console.log("grabbing state: released");
                     grabbedLetter = null;
                 }
             } else {
@@ -641,6 +688,18 @@ function touchStarted() {
 function touchMoved() {
     if (isDrawing){
         for (let t of touches) {
+            let dx = t.x - width/2;
+            let dy = t.y - height/2;
+            let r = 100;
+            let distFromCenter = sqrt(dx*dx + dy*dy);
+
+            if (distFromCenter > r) {
+                // Clamp point to edge of circle
+                let angle = atan2(dy, dx);
+                t.x = width/2 + cos(angle) * r;
+                t.y = height/2 + sin(angle) * r;
+            }
+
             myDrawingPoints[myDrawingPoints.length - 1].push({ x: t.x, y: t.y });
         }
     }
@@ -720,8 +779,8 @@ function submitAvatar() {
         mapY = savedPos.y;
     } else {
         // no saved position yet → start at 0,0
-        mapX = 0;
-        mapY = 0;
+        mapX = width/2;
+        mapY = height/2;
     }
 
     // start showing the map
@@ -731,10 +790,23 @@ function submitAvatar() {
     requestOrientation();
 }
 
-function drawAvatar(drawing, username = "") {
+function drawAvatar(drawing, username = "", showLegs) {
     // avatar
     drawingContext.setLineDash([]);
     strokeWeight(10);
+
+    push();
+    if (showLegs) {
+        translate(width/2, height/2);
+        scale(4);
+        if (!drawing.spiderLegs) {
+            drawing.spiderLegs = new SpiderLegs(); 
+        }
+        drawing.spiderLegs.update();
+        drawing.spiderLegs.show();
+    }
+    pop();
+
     
     for (let strokeArr of drawing) {
         beginShape();
@@ -910,13 +982,13 @@ function getClosestLetterToClaw() {
     tip.rotate(angle);
 
     // claw tip in screen coordinates
-    const clawTipX = width/2 + tip.x;
-    const clawTipY = height/2 + tip.y;
+    const clawTipX = userX + tip.x;
+    const clawTipY = userY + tip.y;
 
     for (let i = 0; i < letters.length; i++) {
         let l = letters[i];
-        let screenX = l.x + width/2 + mapX;
-        let screenY = l.y + height/2 + mapY;
+        let screenX = l.x +  width/2 + actualMapX;;
+        let screenY = l.y + height/2 + actualMapY;
         let d = dist(clawTipX, clawTipY, screenX, screenY);
 
         if (d < minDist) {
@@ -927,6 +999,7 @@ function getClosestLetterToClaw() {
     }
 
     if (closest && minDist <= grabDistance) {
+        console.log("closest:" + closest);
         return closest;
     } else {
         return null;
@@ -941,8 +1014,8 @@ function updateMatchingLetters() {
         y: l.y,
         index: i
     })).filter(l => {
-        const screenX = l.x + width/2 + mapX;
-        const screenY = l.y + height/2 + mapY;
+        const screenX = l.x + width/2 + actualMapX;
+        const screenY = l.y + height/2 + actualMapY;
         return screenX > 0 && screenX < width && screenY > 0 && screenY < height;
     });
 
@@ -996,41 +1069,49 @@ function findClusterUnique(letterOptions, current = [], usedIndices = new Set(),
             const dy = Math.abs(current[i].y - current[i - 1].y);
             if (dx > orderXThreshold || dy > orderYThreshold) return null;
         }
-        return current; // valid cluster
+        return current;
     }
 
     for (let candidate of letterOptions[depth]) {
-        if (usedIndices.has(candidate.index)) continue; // skip reused letters
+        if (usedIndices.has(candidate.index)) continue;
 
         usedIndices.add(candidate.index);
         const nextCurrent = current.concat(candidate);
         const result = findClusterUnique(letterOptions, nextCurrent, usedIndices, depth + 1);
-        if (result) return result; // return first clustered set found
-        usedIndices.delete(candidate.index); // backtrack
+        if (result) return result;
+        usedIndices.delete(candidate.index);
     }
 
-    return null; // no cluster
+    return null;
 }
 
 function checkWordClusterTap(x, y) {
-    for (let match of visibleAnimalMatches) {
-        // Compute cluster center
-        let sumX = 0;
-        let sumY = 0;
-        for (let pos of match.positions) {
-            sumX += pos.x + width/2 + mapX;
-            sumY += pos.y + height/2 + mapY;
-        }
-        let centerX = sumX / match.positions.length;
-        let centerY = sumY / match.positions.length;
+    if (!wordTapped) {
+        for (let match of visibleAnimalMatches) {
+            // Compute cluster center
+            let sumX = 0;
+            let sumY = 0;
+            for (let pos of match.positions) {
+                sumX += pos.x + width/2 + actualMapX;
+                sumY += pos.y + height/2 + actualMapY;
+            }
+            let centerX = sumX / match.positions.length;
+            let centerY = sumY / match.positions.length;
 
-        // radius around center to detect tap
-        let radius = 50; // adjust as needed
-        let d = dist(x, y, centerX, centerY);
-        if (d <= radius) {
-            wordTapped = true;
-            console.log("Cluster:", wordTapped);
-            return;
+            // radius around center to detect tap
+            let radius = 50;
+            let d = dist(x, y, centerX, centerY);
+            if (d <= radius) {
+                wordTapped = true;
+                console.log("Cluster:", wordTapped);
+
+                // automatically select first animal option
+                if (visibleAnimalMatches.length > 0) {
+                    selectedAnimalIndex = 0;
+                }
+
+                return;
+            }
         }
     }
 }
@@ -1086,13 +1167,16 @@ function drawTabBox() {
         let y = boxY + 50 + row * rowHeight;
 
         if (i === selectedAnimalIndex) {
-            fill(30, 144, 255);
+            fill(0, 100, 200);
             textSize(18);
+            text(">>", x, y);
+            text(animal, x + 30, y);
         } else {
             fill(100);
-            textSize(14);
+            textSize(18);
+            text(animal, x, y);
         }
-        text(animal, x, y);
+        
     }
     
     // Submit button
@@ -1111,12 +1195,12 @@ class Ripple {
       this.x = x;
       this.y = y;
       this.radius = 0;
-      this.alpha = 200; // starting transparency
+      this.alpha = 80;
     }
   
     update() {
-      this.radius += 5; // speed of expansion
-      this.alpha -= 5;  // fade speed
+      this.radius += 1;
+      this.alpha -= 1;
     }
   
     finished() {
@@ -1129,5 +1213,41 @@ class Ripple {
       strokeWeight(2);
       ellipse(this.x, this.y, this.radius * 2);
     }
-  }
-  
+}
+
+class SpiderLegs {
+    constructor(legCount = 8, legLength = 50) {
+        this.legs = [];
+        this.legCount = legCount;
+        this.legLength = legLength;
+        for (let i = 0; i < legCount; i++) {
+            let angle = map(i, 0, legCount, 0, TWO_PI);
+            this.legs.push({
+                baseAngle: angle,
+                swing: 0,
+                swingSpeed: random(0.05, 0.1),
+                swingRange: PI / 6
+            });
+        }
+    }
+
+    update() {
+        for (let leg of this.legs) {
+            leg.swing = sin(frameCount * leg.swingSpeed) * leg.swingRange;
+        }
+    }
+
+    show() {
+        for (let leg of this.legs) {
+            push();
+            rotate(leg.baseAngle + leg.swing);
+            fill(255);
+            noStroke();
+            circle(0,0, 60);
+            stroke(255);
+            strokeWeight(3);
+            line(0, 0, this.legLength, 0);
+            pop();
+        }
+    }
+}
